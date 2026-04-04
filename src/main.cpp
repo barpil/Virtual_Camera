@@ -1,24 +1,18 @@
 #include <SFML/Graphics.hpp>
-#include <SFML/Window/Event.hpp>
+
+#include "file-reader/ObjectReader.h"
+#include "graphics/Projector.h"
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode({800, 600}), "Virtual Camera");
+    auto figures = ObjectReader::readFiguresFromFile("../settings/bryly.txt");
 
-    sf::CircleShape shape(100.f);
-    shape.setFillColor(sf::Color::Green);
-    shape.setPosition({350.f, 250.f});
+    Projector projector(800, 600, 400, Point{-3, 0, -3});
 
-    while (window.isOpen()) {
-        while (const std::optional event = window.pollEvent()) {
-            if (event->is<sf::Event::Closed>()) {
-                window.close();
-            }
-        }
-
-        window.clear();
-        window.draw(shape);
-        window.display();
+    for (Figure const &figure : figures) {
+        projector.drawFigure(figure);
     }
+
+    projector.render();
 
     return 0;
 }
