@@ -1,5 +1,6 @@
 # IDE
 .idea
+CMakeUserPresets.json
 
 
 # Prerequisites
