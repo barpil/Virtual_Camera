@@ -2,6 +2,8 @@
 // Created by Bcom_ on 09.04.2026.
 //
 
+#include <cmath>
+
 #include "Camera.h"
 
 
@@ -14,8 +16,11 @@ void Camera::move(const double xChange, const double yChange, const double zChan
     this->cameraPosition = newPosition;
 }
 
-void Camera::rotate(double xRotation, double yRotation, double zRotation) {
-    //Do zaimplementowania
+//Zakres obrotu to od <0; 360)
+void Camera::rotate(const double xRotation, const double yRotation, const double zRotation) {
+    cameraRotation.xRotation = std::fmod(cameraRotation.xRotation+xRotation, 360.0);
+    cameraRotation.yRotation = std::fmod(cameraRotation.yRotation+yRotation, 360.0);
+    cameraRotation.zRotation = std::fmod(cameraRotation.zRotation+zRotation, 360.0);
 }
 
 void Camera::zoom(double focalChange) {

@@ -14,6 +14,8 @@
 #include "../utils/3DSpaceUtils.h"
 #include "elements/Camera.h"
 
+//Do wprowadzenia rotacja i poprawienie bledow graficznych, bo aktualnie jakis dziwny efekt jak rybiego oka jest i wyglada nienaturalnie
+
 
 Projector::Projector(const int screenWidth, const int screenHeight, const Camera &camera)
     : screenWidth(screenWidth), screenHeight(screenHeight), cameraPositionText(font), camera(camera) {
@@ -28,14 +30,13 @@ Projector::Projector(const int screenWidth, const int screenHeight, const Camera
         std::cerr << "Failed to load font\n";
     }
     cameraPositionText.setCharacterSize(16);
-
 }
 
 
 void Projector::drawFigure(const Figure &figure) {
     for (const auto &[start, end]: figure.edges) {
-        const sf::Vector2f p1 = pointToVector2f(figure.points[start]);
-        const sf::Vector2f p2 = pointToVector2f(figure.points[end]);
+        const sf::Vector2f p1 = projectPoint(figure.points[start]);
+        const sf::Vector2f p2 = projectPoint(figure.points[end]);
 
         lines.append(sf::Vertex{p1, sf::Color::Green});
         lines.append(sf::Vertex{p2, sf::Color::Green});
@@ -50,10 +51,13 @@ void Projector::refreshDisplay() {
 }
 
 void Projector::refreshOnScreenText() {
-    cameraPositionText.setString(std::format("Camera (x:{:.2f}; y:{:.2f}; z:{:.2f})", camera.getCameraPosition().x,
-                                             camera.getCameraPosition().y, camera.getCameraPosition().z));
+    cameraPositionText.setString(std::format(
+        "Camera:\nPosition: (x:{:.2f}; y:{:.2f}; z:{:.2f})\nRotation: (ax:{:.2f}; ay:{:.2f}; az:{:.2f})",
+        camera.getCameraPosition().x,
+        camera.getCameraPosition().y, camera.getCameraPosition().z, camera.getRotation().xRotation,
+        camera.getRotation().yRotation, camera.getRotation().zRotation));
     cameraPositionText.setPosition({
-        static_cast<float>(window.getSize().x) - cameraPositionText.getLocalBounds().size.x -10.f,
+        static_cast<float>(window.getSize().x) - cameraPositionText.getLocalBounds().size.x - 10.f,
         10.f
     });
     window.draw(cameraPositionText);
@@ -74,6 +78,8 @@ void Projector::redrawFigures() {
 void Projector::render(const std::vector<Figure> &figureList) {
     this->figures = figureList;
     refreshDisplay();
+    std::optional<sf::Vector2i> dragStart;
+    bool isDragging = false;
     while (window.isOpen()) {
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) window.close();
@@ -84,6 +90,17 @@ void Projector::render(const std::vector<Figure> &figureList) {
             } else if (event->is<sf::Event::MouseWheelScrolled>()) {
                 onMouseWheelScrolled(*event->getIf<sf::Event::MouseWheelScrolled>());
                 refreshDisplay();
+            } else if (event->is<sf::Event::MouseButtonPressed>()) {
+                if (const auto &mouse = event->getIf<sf::Event::MouseButtonPressed>();
+                    mouse->button == sf::Mouse::Button::Left) {
+                    dragStart = sf::Mouse::getPosition(window);
+                    isDragging = true;
+                }
+            } else if (event->is<sf::Event::MouseButtonReleased>()) {
+                if (const auto &mouse = event->getIf<sf::Event::MouseButtonReleased>();
+                    mouse->button == sf::Mouse::Button::Left) {
+                    isDragging = false;
+                }
             } else if (event->is<sf::Event::Resized>()) {
                 const auto &resized = event->getIf<sf::Event::Resized>();
                 window.setView(sf::View(sf::FloatRect(
@@ -94,22 +111,33 @@ void Projector::render(const std::vector<Figure> &figureList) {
             }
         }
 
+        if (isDragging) {
+            sf::Vector2i dragEnd = sf::Mouse::getPosition(window);
+            if (dragStart) {
+                onDrag({static_cast<double>(dragStart->x), static_cast<double>(dragStart->y)}, {
+                           static_cast<double>(dragEnd.x), static_cast<double>(dragEnd.y)
+                       });
+                refreshDisplay();
+                dragStart = dragEnd;
+            }
+        }
     }
 }
 
 
-sf::Vector2f Projector::pointToVector2f(const Point3D &p) const {
-    Point2D point2D = utils::project3DTo2D(camera.getCameraPosition(), p);
+sf::Vector2f Projector::projectPoint(const Point3D &p) const {
+    Point2D point2D = utils::project3DTo2D(camera.getCameraPosition(), camera.getRotation(), p);
     //Zeby zgadzala sie skala po powiekszeniu okna
     const double scaleX = static_cast<double>(window.getSize().x) / screenWidth;
     const double scaleY = static_cast<double>(window.getSize().y) / screenHeight;
     const double scale = std::min(scaleX, scaleY);
 
+
     const double x2d = point2D.x * camera.getFocal() * scale
-                + static_cast<double>(window.getSize().x) / 2;
+                       + static_cast<double>(window.getSize().x) / 2;
 
     const double y2d = -point2D.y * camera.getFocal() * scale
-                + static_cast<double>(window.getSize().y) / 2;
+                       + static_cast<double>(window.getSize().y) / 2;
 
     return {static_cast<float>(x2d), static_cast<float>(y2d)};
 }
@@ -134,6 +162,34 @@ void Projector::onKeyPressed(const sf::Keyboard::Key key) {
         case sf::Keyboard::Key::LShift:
             camera.move(0, -0.1, 0);
             break;
+        case sf::Keyboard::Key::Up: {
+            const Point2D screenCenter = {static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2};
+            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(screenCenter, {screenCenter.x, screenCenter.y+10}, window.getSize().x, window.getSize().y);
+            camera.rotate(xRotation, yRotation, zRotation);
+            break;
+        }
+        case sf::Keyboard::Key::Down: {
+            const Point2D screenCenter = {static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2};
+            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(screenCenter, {screenCenter.x, screenCenter.y-10}, window.getSize().x, window.getSize().y);
+            camera.rotate(xRotation, yRotation, zRotation);
+            break;
+        }
+            camera.move(0, -0.1, 0);
+            break;
+        case sf::Keyboard::Key::Left: {
+            const Point2D screenCenter = {static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2};
+            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(screenCenter, {screenCenter.x-10, screenCenter.y}, window.getSize().x, window.getSize().y);
+            camera.rotate(xRotation, yRotation, zRotation);
+            break;
+        }
+            camera.move(0, -0.1, 0);
+            break;
+        case sf::Keyboard::Key::Right: {
+            const Point2D screenCenter = {static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2};
+            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(screenCenter, {screenCenter.x+10, screenCenter.y}, window.getSize().x, window.getSize().y);
+            camera.rotate(xRotation, yRotation, zRotation);
+            break;
+        }
         default:
             break;
     }
@@ -141,5 +197,11 @@ void Projector::onKeyPressed(const sf::Keyboard::Key key) {
 
 
 void Projector::onMouseWheelScrolled(const sf::Event::MouseWheelScrolled &event) {
-    camera.zoom(event.delta*5);
+    camera.zoom(event.delta * 5);
+}
+
+void Projector::onDrag(Point2D dragStart, Point2D dragEnd) {
+    //Mozliwe ze bedzie trzeba w srodku metody zmienic zeby rotationCenterPosition byl zawsze {0,0,0} a nie podawany jako parametr
+    auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(dragStart, dragEnd, window.getSize().x, window.getSize().y);
+    camera.rotate(xRotation, yRotation, zRotation);
 }

@@ -37,13 +37,14 @@ public:
     }
 
 private:
-    sf::Vector2f pointToVector2f(const Point3D &p) const;
+    sf::Vector2f projectPoint(const Point3D &p) const;
     void redrawFigures();
 
     void refreshOnScreenText();
 
     void onKeyPressed(sf::Keyboard::Key key);
     void onMouseWheelScrolled(const sf::Event::MouseWheelScrolled &event);
+    void onDrag(Point2D dragStart, Point2D dragEnd);
 };
 
 

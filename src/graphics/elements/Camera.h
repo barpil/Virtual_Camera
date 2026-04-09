@@ -25,14 +25,20 @@ struct Direction {
     Sign zDirection;
 };
 
+struct Rotation {
+    double xRotation;
+    double yRotation;
+    double zRotation;
+};
+
 class Camera {
     Point3D cameraPosition;
+    Rotation cameraRotation = {0, 0, 0};
     Direction direction;
     double focal;
 public:
     Camera(const Point3D &initialPosition, const Direction initialDirection, const double initialFocal) :
-        cameraPosition(initialPosition),direction(initialDirection), focal(initialFocal) {
-
+        cameraPosition(initialPosition), direction(initialDirection), focal(initialFocal) {
     }
 
     [[nodiscard]] Point3D getCameraPosition() const {
@@ -41,6 +47,10 @@ public:
 
     [[nodiscard]] Direction getDirection() const {
         return direction;
+    }
+
+    [[nodiscard]] Rotation getRotation() const {
+        return cameraRotation;
     }
 
     [[nodiscard]] double getFocal() const {
