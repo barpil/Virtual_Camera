@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-#include "../graphics/Figure.h"
+#include "../graphics/elements/Figure.h"
 
 
 class ObjectReader {

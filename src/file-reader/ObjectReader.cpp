@@ -26,6 +26,7 @@ std::vector<Figure> ObjectReader::readFiguresFromFile(std::string fileName) {
 
     int i = 0;
     while (std::getline(file, line)) {
+        if (line.empty()) continue;
         Figure figure = createFigureFromString(line);
         figures.push_back(figure);
         i++;
@@ -58,7 +59,7 @@ Figure ObjectReader::createFigureFromString(std::string figureString) {
        !std::getline(ss, excess, '|'))) {
 
         std::cerr << "Invalid figure input: \"" << figureString << "\"" << std::endl;
-        std::cerr << "Correct input format: Points | Edges (where point is comma separated list of points {x;y;z} and edge is comma separated list of points to connect {start;end})" <<std::endl;
+        std::cerr << "Correct input format: Points | Edges (where Point3D is comma separated list of points {x;y;z} and edge is comma separated list of points to connect {start;end})" <<std::endl;
         exit(-1);
        }
 
@@ -70,7 +71,7 @@ Figure ObjectReader::createFigureFromString(std::string figureString) {
         pointStrings.push_back(pointString);
     }
 
-    std::vector<Point> points;
+    std::vector<Point3D> points;
 
     for (const std::string& ps : pointStrings) {
         std::vector<double> coords;
@@ -87,11 +88,11 @@ Figure ObjectReader::createFigureFromString(std::string figureString) {
         }
 
         if (coords.size() != 3) {
-            std::cerr << "Invalid point sequence. Sequence should contain exactly 3 coordinates {x;y;z}: " << ps << std::endl;
+            std::cerr << "Invalid Point3D sequence. Sequence should contain exactly 3 coordinates {x;y;z}: " << ps << std::endl;
             continue;
         }
 
-        Point p{coords[0], coords[1], coords[2]};
+        Point3D p{coords[0], coords[1], coords[2]};
         points.push_back(p);
     }
 
@@ -120,7 +121,7 @@ Figure ObjectReader::createFigureFromString(std::string figureString) {
         }
 
         if (pointIdxs.size() != 2) {
-            std::cerr << "Invalid edge sequence. Sequence should contain exactly 2 point indexes (First point is '1') {start;end}: " << es << std::endl;
+            std::cerr << "Invalid edge sequence. Sequence should contain exactly 2 Point3D indexes (First Point3D is '1') {start;end}: " << es << std::endl;
             continue;
         }
 

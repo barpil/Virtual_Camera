@@ -5,10 +5,11 @@
 #ifndef WIRTUALNA_KAMERA_3DSPACEUTILS_H
 #define WIRTUALNA_KAMERA_3DSPACEUTILS_H
 
-#include "../graphics/Figure.h"
+#include "../graphics/elements/Figure.h"
 
 namespace utils {
-    double distance3D(const Point& p1, const Point& p2);
+    double distance3D(const Point3D& p1, const Point3D& p2);
+    Point2D project3DTo2D(const Point3D &cameraPosition, const Point3D &point);
 }
 
 

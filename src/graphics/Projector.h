@@ -4,11 +4,14 @@
 
 #ifndef WIRTUALNA_KAMERA_PROJECTOR_H
 #define WIRTUALNA_KAMERA_PROJECTOR_H
+#include <SFML/Graphics/Font.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/VertexArray.hpp>
 #include <SFML/System/Vector2.hpp>
 
-#include "Figure.h"
+#include "elements/Camera.h"
+#include "elements/Figure.h"
 
 
 class Projector {
@@ -16,18 +19,31 @@ class Projector {
     int screenHeight;
     sf::RenderWindow window;
     sf::VertexArray lines;
-    double fieldOfView;
-    Point cameraPosition;
+    sf::Text cameraPositionText;
+    sf::Font font;
+    Camera camera;
+    std::vector<Figure> figures;
 
 public:
-    Projector(int screenWidth, int screenHeight, double fieldOfView, const Point &cameraPosition);
+    Projector(int screenWidth, int screenHeight, const Camera &camera);
 
     void drawFigure(const Figure &figure);
-    void render();
+    void render(const std::vector<Figure> &figureList);
     void refreshDisplay();
     void clearLineBuffer();
+
+    [[nodiscard]] Camera getCamera() const {
+        return camera;
+    }
+
 private:
-    sf::Vector2f pointToVector2f(const Point &p, double fieldOfView, const Point &cameraPosition) const;
+    sf::Vector2f pointToVector2f(const Point3D &p) const;
+    void redrawFigures();
+
+    void refreshOnScreenText();
+
+    void onKeyPressed(sf::Keyboard::Key key);
+    void onMouseWheelScrolled(const sf::Event::MouseWheelScrolled &event);
 };
 
 

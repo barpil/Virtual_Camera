@@ -3,16 +3,15 @@
 #include "file-reader/ObjectReader.h"
 #include "graphics/Projector.h"
 
+
 int main() {
-    auto figures = ObjectReader::readFiguresFromFile("../settings/bryly.txt");
+    auto figures = ObjectReader::readFiguresFromFile("../settings/szescian.txt");
 
-    Projector projector(800, 600, 400, Point{-3, 0, -3});
+    const Camera camera(Point3D{0, 0, -1}, Direction{Sign::POSITIVE, Sign::POSITIVE, Sign::POSITIVE}, 200);
 
-    for (Figure const &figure : figures) {
-        projector.drawFigure(figure);
-    }
+    Projector projector(800, 600, camera);
 
-    projector.render();
+    projector.render(figures);
 
     return 0;
 }

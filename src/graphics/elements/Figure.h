@@ -7,11 +7,8 @@
 #include <vector>
 #include <iostream>
 
-struct Point {
-    double x;
-    double y;
-    double z;
-};
+#include "Point.h"
+
 
 struct Edge {
     int start;
@@ -20,10 +17,10 @@ struct Edge {
 
 class Figure {
 public:
-    std::vector<Point> points;
+    std::vector<Point3D> points;
     std::vector<Edge> edges;
 
-    explicit Figure(const std::vector<Point> &points, const std::vector<Edge> &edges)
+    explicit Figure(const std::vector<Point3D> &points, const std::vector<Edge> &edges)
         : points(points),
           edges(edges) {
     }
