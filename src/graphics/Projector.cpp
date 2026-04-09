@@ -14,7 +14,7 @@
 #include "../utils/3DSpaceUtils.h"
 #include "elements/Camera.h"
 
-//Do wprowadzenia rotacja i poprawienie bledow graficznych, bo aktualnie jakis dziwny efekt jak rybiego oka jest i wyglada nienaturalnie
+//Aktualnie rotacja jest wzgledem globalnego ukladu wspolrzednych, a nie kamery. Bede musial wprowadzic macierze rotacji
 
 
 Projector::Projector(const int screenWidth, const int screenHeight, const Camera &camera)
@@ -126,17 +126,17 @@ void Projector::render(const std::vector<Figure> &figureList) {
 
 
 sf::Vector2f Projector::projectPoint(const Point3D &p) const {
-    Point2D point2D = utils::project3DTo2D(camera.getCameraPosition(), camera.getRotation(), p);
+    Point2D point2D = utils::project3DTo2D(camera.getCameraPosition(), camera.getRotation(), camera.getFocal(), p);
     //Zeby zgadzala sie skala po powiekszeniu okna
     const double scaleX = static_cast<double>(window.getSize().x) / screenWidth;
     const double scaleY = static_cast<double>(window.getSize().y) / screenHeight;
     const double scale = std::min(scaleX, scaleY);
 
 
-    const double x2d = point2D.x * camera.getFocal() * scale
+    const double x2d = point2D.x * scale
                        + static_cast<double>(window.getSize().x) / 2;
 
-    const double y2d = -point2D.y * camera.getFocal() * scale
+    const double y2d = -point2D.y * scale
                        + static_cast<double>(window.getSize().y) / 2;
 
     return {static_cast<float>(x2d), static_cast<float>(y2d)};

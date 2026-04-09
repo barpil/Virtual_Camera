@@ -106,18 +106,25 @@ namespace utils{
     }
 
 
-    Point2D project3DTo2D(const Point3D &cameraPosition, const Rotation &cameraRotation, const Point3D &point) {
-        const Point3D p = rotate3D(point, cameraRotation.xRotation, cameraRotation.yRotation, cameraRotation.zRotation);
+    Point2D project3DTo2D(const Point3D &cameraPosition, const Rotation &cameraRotation, const double focal, const Point3D &point) {
+        Point3D relativePoint = {
+            point.x - cameraPosition.x,
+            point.y - cameraPosition.y,
+            point.z - cameraPosition.z
+        };
 
-        const double d = distance3D(p, cameraPosition);
-        //point position relative to camera
-        const double rx = p.x - cameraPosition.x;
-        const double ry = p.y - cameraPosition.y;
-        const double rz = p.z - cameraPosition.z;
+        Point3D p = relativePoint;
+
+        p = rotate3D(p, -cameraRotation.xRotation, -cameraRotation.yRotation, -cameraRotation.xRotation);
+
+
+        // Zabezpieczenie przed podzieleniem przez p.z bliskiemu 0
+        if (p.z <= 0.1) return {0, 0};
 
         Point2D resultPoint{};
-        resultPoint.x = (rx*d)/(rz+d);
-        resultPoint.y = (ry*d)/(rz+d);
+        resultPoint.x = (p.x * focal) / p.z;
+        resultPoint.y = (p.y * focal) / p.z;
+
         return resultPoint;
     }
 
