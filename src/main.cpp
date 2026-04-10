@@ -5,9 +5,9 @@
 
 
 int main() {
-    auto figures = ObjectReader::readFiguresFromFile("../settings/szescian.txt");
+    auto figures = ObjectReader::readFiguresFromFile("../resources/szescian.txt");
 
-    const Camera camera(Point3D{0, 0, -1}, Direction{Sign::POSITIVE, Sign::POSITIVE, Sign::POSITIVE}, 200);
+    const Camera camera(Point3D{0, 0, -1}, 200, 0.1, -1);
 
     Projector projector(800, 600, camera);
 

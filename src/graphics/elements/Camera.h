@@ -6,51 +6,31 @@
 #define WIRTUALNA_KAMERA_CAMERA_H
 #include "Figure.h"
 
-enum class Sign: int {
-    POSITIVE = 1,
-    NEGATIVE = -1
-};
-//Operatory żeby podstawowe * działało dla double*enum
-inline double operator*(const double lhs, const Sign rhs) {
-    return lhs * static_cast<double>(rhs);
-}
-inline double operator*(const Sign lhs, const double rhs) {
-    return rhs * lhs;
-}
 
-
-struct Direction {
-    Sign xDirection;
-    Sign yDirection;
-    Sign zDirection;
-};
-
-struct Rotation {
-    double xRotation;
-    double yRotation;
-    double zRotation;
+struct LocalAxes {
+    Point3D forward;
+    Point3D up;
+    Point3D right;
 };
 
 class Camera {
     Point3D cameraPosition;
-    Rotation cameraRotation = {0, 0, 0};
-    Direction direction;
+    LocalAxes localOrientation = {{0, 0, 1}, {0, 1, 0}, {1, 0 ,0}};
     double focal;
+    double rotationPrecision;
+    double movePrecision;
+
 public:
-    Camera(const Point3D &initialPosition, const Direction initialDirection, const double initialFocal) :
-        cameraPosition(initialPosition), direction(initialDirection), focal(initialFocal) {
+    Camera(const Point3D &initialPosition, const double initialFocal, const double rotationPrecision, const double movePrecision) :
+        cameraPosition(initialPosition), focal(initialFocal), rotationPrecision(rotationPrecision), movePrecision(movePrecision) {
     }
 
     [[nodiscard]] Point3D getCameraPosition() const {
         return cameraPosition;
     }
 
-    [[nodiscard]] Direction getDirection() const {
-        return direction;
-    }
-
-    [[nodiscard]] Rotation getRotation() const {
-        return cameraRotation;
+    [[nodiscard]] LocalAxes getLocalOrientation() const {
+        return localOrientation;
     }
 
     [[nodiscard]] double getFocal() const {
@@ -60,6 +40,7 @@ public:
     void move(double xChange, double yChange, double zChange);
     void rotate(double xRotation, double yRotation, double zRotation);
     void zoom(double focalChange);
+    bool levelLocalHorizon();
 
 };
 

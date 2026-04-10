@@ -6,16 +6,17 @@
 
 #include "Projector.h"
 
+#include <cmath>
 #include <SFML/Graphics/Font.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/VertexArray.hpp>
 
 #include "../utils/3DSpaceUtils.h"
+#include "binaries/RobotoMonoFont.h"
 #include "elements/Camera.h"
 
-//Aktualnie rotacja jest wzgledem globalnego ukladu wspolrzednych, a nie kamery. Bede musial wprowadzic macierze rotacji
-
+const double ARCBALL_SENSITIVITY = 1;
 
 Projector::Projector(const int screenWidth, const int screenHeight, const Camera &camera)
     : screenWidth(screenWidth), screenHeight(screenHeight), cameraPositionText(font), camera(camera) {
@@ -25,8 +26,7 @@ Projector::Projector(const int screenWidth, const int screenHeight, const Camera
 
     lines.setPrimitiveType(sf::PrimitiveType::Lines);
 
-    //Ustawienie napisu z pozycja kamery
-    if (!font.openFromFile("../resources/arial.ttf")) {
+    if (!font.openFromMemory(RobotoMonoFont_ttf, RobotoMonoFont_ttf_len)) {
         std::cerr << "Failed to load font\n";
     }
     cameraPositionText.setCharacterSize(16);
@@ -54,8 +54,11 @@ void Projector::refreshOnScreenText() {
     cameraPositionText.setString(std::format(
         "Camera:\nPosition: (x:{:.2f}; y:{:.2f}; z:{:.2f})\nRotation: (ax:{:.2f}; ay:{:.2f}; az:{:.2f})",
         camera.getCameraPosition().x,
-        camera.getCameraPosition().y, camera.getCameraPosition().z, camera.getRotation().xRotation,
-        camera.getRotation().yRotation, camera.getRotation().zRotation));
+        camera.getCameraPosition().y, camera.getCameraPosition().z,
+        //Przeliczenie pozycji osi kamery na rotacje w stopniach
+        std::asin(-camera.getLocalOrientation().forward.y) * 180.0 / M_PI,
+        std::atan2(camera.getLocalOrientation().forward.x, camera.getLocalOrientation().forward.z) * 180.0 / M_PI,
+        std::atan2(camera.getLocalOrientation().right.y, camera.getLocalOrientation().up.y) * 180.0 / M_PI));
     cameraPositionText.setPosition({
         static_cast<float>(window.getSize().x) - cameraPositionText.getLocalBounds().size.x - 10.f,
         10.f
@@ -126,7 +129,7 @@ void Projector::render(const std::vector<Figure> &figureList) {
 
 
 sf::Vector2f Projector::projectPoint(const Point3D &p) const {
-    Point2D point2D = utils::project3DTo2D(camera.getCameraPosition(), camera.getRotation(), camera.getFocal(), p);
+    Point2D point2D = utils::project3DTo2D(camera.getCameraPosition(), camera.getLocalOrientation(), camera.getFocal(), p);
     //Zeby zgadzala sie skala po powiekszeniu okna
     const double scaleX = static_cast<double>(window.getSize().x) / screenWidth;
     const double scaleY = static_cast<double>(window.getSize().y) / screenHeight;
@@ -162,34 +165,55 @@ void Projector::onKeyPressed(const sf::Keyboard::Key key) {
         case sf::Keyboard::Key::LShift:
             camera.move(0, -0.1, 0);
             break;
+        case sf::Keyboard::Key::R:
+            camera.levelLocalHorizon();
+            break;
         case sf::Keyboard::Key::Up: {
-            const Point2D screenCenter = {static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2};
-            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(screenCenter, {screenCenter.x, screenCenter.y+10}, window.getSize().x, window.getSize().y);
-            camera.rotate(xRotation, yRotation, zRotation);
+            const Point2D screenCenter = {
+                static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2
+            };
+            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
+                screenCenter, {screenCenter.x, screenCenter.y + 10}, window.getSize().x,
+                window.getSize().y, ARCBALL_SENSITIVITY);
+            camera.rotate(xRotation, yRotation, 0);
             break;
         }
         case sf::Keyboard::Key::Down: {
-            const Point2D screenCenter = {static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2};
-            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(screenCenter, {screenCenter.x, screenCenter.y-10}, window.getSize().x, window.getSize().y);
-            camera.rotate(xRotation, yRotation, zRotation);
+            const Point2D screenCenter = {
+                static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2
+            };
+            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
+                screenCenter, {screenCenter.x, screenCenter.y - 10}, window.getSize().x,
+                window.getSize().y, ARCBALL_SENSITIVITY);
+            camera.rotate(xRotation, yRotation, 0);
             break;
         }
-            camera.move(0, -0.1, 0);
-            break;
         case sf::Keyboard::Key::Left: {
-            const Point2D screenCenter = {static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2};
-            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(screenCenter, {screenCenter.x-10, screenCenter.y}, window.getSize().x, window.getSize().y);
-            camera.rotate(xRotation, yRotation, zRotation);
+            const Point2D screenCenter = {
+                static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2
+            };
+            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
+                screenCenter, {screenCenter.x - 10, screenCenter.y}, window.getSize().x,
+                window.getSize().y, ARCBALL_SENSITIVITY);
+            camera.rotate(xRotation, yRotation, 0);
             break;
         }
-            camera.move(0, -0.1, 0);
-            break;
         case sf::Keyboard::Key::Right: {
-            const Point2D screenCenter = {static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2};
-            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(screenCenter, {screenCenter.x+10, screenCenter.y}, window.getSize().x, window.getSize().y);
-            camera.rotate(xRotation, yRotation, zRotation);
+            const Point2D screenCenter = {
+                static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2
+            };
+            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
+                screenCenter, {screenCenter.x + 10, screenCenter.y}, window.getSize().x,
+                window.getSize().y, ARCBALL_SENSITIVITY);
+            camera.rotate(xRotation, yRotation, 0);
             break;
         }
+        case sf::Keyboard::Key::Q:
+            camera.rotate(0, 0, 1);
+            break;
+        case sf::Keyboard::Key::E:
+            camera.rotate(0, 0, -1);
+            break;
         default:
             break;
     }
@@ -201,7 +225,7 @@ void Projector::onMouseWheelScrolled(const sf::Event::MouseWheelScrolled &event)
 }
 
 void Projector::onDrag(Point2D dragStart, Point2D dragEnd) {
-    //Mozliwe ze bedzie trzeba w srodku metody zmienic zeby rotationCenterPosition byl zawsze {0,0,0} a nie podawany jako parametr
-    auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(dragStart, dragEnd, window.getSize().x, window.getSize().y);
-    camera.rotate(xRotation, yRotation, zRotation);
+    auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
+        dragStart, dragEnd, window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
+    camera.rotate(xRotation, yRotation, 0); //Rotacja Z ustawiana na 0, bo inaczej zbyt ciezko sterowac
 }

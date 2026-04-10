@@ -17,6 +17,7 @@ add_executable(Wirtualna_kamera src/main.cpp
         src/graphics/elements/Figure.cpp
         src/graphics/elements/Figure.h
         src/graphics/elements/Point.h
+        src/graphics/binaries/RobotoMonoFont.h
 )
 
 target_link_libraries(Wirtualna_kamera PRIVATE SFML::Graphics SFML::Window SFML::System)

@@ -27,7 +27,7 @@ public:
 
     friend std::ostream& operator<<(std::ostream& os, const Figure& f) {
         os << "Points: ";
-        for (auto [x, y, z]: f.points) {
+        for (auto const& [x, y, z]: f.points) {
             os << "(x: " << x << ", y: " << y << ", z: " << z << ") ";
         }
         os << "| Edges: ";
