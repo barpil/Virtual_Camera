@@ -60,7 +60,7 @@ void Camera::rotate(const double xRotationDeg, const double yRotationDeg, const 
 }
 
 void Camera::zoom(double focalChange) {
-    this->focal += focalChange;
+    this->focal = std::max(5.0, std::min(5000.0, this->focal+focalChange));
 }
 
 bool Camera::levelLocalHorizon() {

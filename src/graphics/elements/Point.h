@@ -7,6 +7,7 @@
 
 #endif //WIRTUALNA_KAMERA_POINT_H
 
+
 struct Point3D {
     double x;
     double y;
@@ -16,4 +17,11 @@ struct Point3D {
 struct Point2D {
     double x;
     double y;
+};
+
+struct Line2D {
+    Point2D start;
+    Point2D end;
+    double startZDepth;
+    double endZDepth;
 };

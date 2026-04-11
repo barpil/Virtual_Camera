@@ -39,7 +39,7 @@ public:
     }
 
 private:
-    sf::Vector2f projectPoint(const Point3D &p) const;
+    std::optional<Line2D> projectLine(const Point3D &point1, const Point3D &point2) const;
     void redrawFigures();
 
     void refreshOnScreenText();

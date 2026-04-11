@@ -32,14 +32,40 @@ Projector::Projector(const int screenWidth, const int screenHeight, const Camera
     cameraPositionText.setCharacterSize(16);
 }
 
+//minZ to kiedy osiagamy pelna jasnosc, a maxZ to kiedy pelna ciemnosc
+sf::Color calculateDepthColor(const sf::Color baseColor, const double z, double minZ, double maxZ) {
+    //mapujemy polozenie z na wspolczynnik glebokosci
+    double factor = (maxZ - z) / (maxZ - minZ);
+    //przycinamy wartosci do <0.01, 1>
+    factor = std::clamp(factor, 0.0, 1.0);
+
+    factor = std::pow(factor, 0.7);
+    //ambient jako minimalna wartosc jasnosci
+    const double ambient = 0.3;
+    factor = ambient + (factor * (1.0 - ambient));
+
+    return {
+        static_cast<uint8_t>(baseColor.r * factor),
+        static_cast<uint8_t>(baseColor.g * factor),
+        static_cast<uint8_t>(baseColor.b * factor)
+    };
+}
 
 void Projector::drawFigure(const Figure &figure) {
     for (const auto &[start, end]: figure.edges) {
-        const sf::Vector2f p1 = projectPoint(figure.points[start]);
-        const sf::Vector2f p2 = projectPoint(figure.points[end]);
+        auto projectedLine = projectLine(figure.points[start], figure.points[end]);
+        if (!projectedLine) continue;
 
-        lines.append(sf::Vertex{p1, sf::Color::Green});
-        lines.append(sf::Vertex{p2, sf::Color::Green});
+        const Line2D line = projectedLine.value();
+        const sf::Vector2f v1 = {static_cast<float>(line.start.x), static_cast<float>(line.start.y)};
+        const sf::Vector2f v2 = {static_cast<float>(line.end.x), static_cast<float>(line.end.y)};
+
+        //uzaleznienie koloru od oddalenia punktu
+        sf::Color color1 = calculateDepthColor(sf::Color::Green, line.startZDepth, 0.3, 2);
+        sf::Color color2 = calculateDepthColor(sf::Color::Green, line.endZDepth, 0.3, 2);
+
+        lines.append(sf::Vertex{v1, color1});
+        lines.append(sf::Vertex{v2, color2});
     }
 }
 
@@ -52,13 +78,15 @@ void Projector::refreshDisplay() {
 
 void Projector::refreshOnScreenText() {
     cameraPositionText.setString(std::format(
-        "Camera:\nPosition: (x:{:.2f}; y:{:.2f}; z:{:.2f})\nRotation: (ax:{:.2f}; ay:{:.2f}; az:{:.2f})",
+        "Camera:\nPosition: (x:{:.2f}; y:{:.2f}; z:{:.2f})\nRotation: (ax:{:.2f}; ay:{:.2f}; az:{:.2f})\nFocal   : {}",
         camera.getCameraPosition().x,
         camera.getCameraPosition().y, camera.getCameraPosition().z,
         //Przeliczenie pozycji osi kamery na rotacje w stopniach
         std::asin(-camera.getLocalOrientation().forward.y) * 180.0 / M_PI,
         std::atan2(camera.getLocalOrientation().forward.x, camera.getLocalOrientation().forward.z) * 180.0 / M_PI,
-        std::atan2(camera.getLocalOrientation().right.y, camera.getLocalOrientation().up.y) * 180.0 / M_PI));
+        std::atan2(camera.getLocalOrientation().right.y, camera.getLocalOrientation().up.y) * 180.0 / M_PI,
+        camera.getFocal())
+        );
     cameraPositionText.setPosition({
         static_cast<float>(window.getSize().x) - cameraPositionText.getLocalBounds().size.x - 10.f,
         10.f
@@ -128,21 +156,33 @@ void Projector::render(const std::vector<Figure> &figureList) {
 }
 
 
-sf::Vector2f Projector::projectPoint(const Point3D &p) const {
-    Point2D point2D = utils::project3DTo2D(camera.getCameraPosition(), camera.getLocalOrientation(), camera.getFocal(), p);
+std::optional<Line2D> Projector::projectLine(const Point3D &point1, const Point3D &point2) const {
+
+    Point3D p1 = point1;
+    Point3D p2 = point2;
+
+    utils::transformPointToPointInCameraLocalAxes(p1, camera.getCameraPosition(), camera.getLocalOrientation());
+    utils::transformPointToPointInCameraLocalAxes(p2, camera.getCameraPosition(), camera.getLocalOrientation());
+    if (const double zLimit = 0.001 * camera.getFocal(); !utils::performLineZClipping(p1, p2, zLimit)) return std::nullopt;
+
+    Point2D point2D1 = utils::project3DTo2D(p1, camera.getFocal());
+    Point2D point2D2 = utils::project3DTo2D(p2, camera.getFocal());
+
+
     //Zeby zgadzala sie skala po powiekszeniu okna
     const double scaleX = static_cast<double>(window.getSize().x) / screenWidth;
     const double scaleY = static_cast<double>(window.getSize().y) / screenHeight;
     const double scale = std::min(scaleX, scaleY);
 
 
-    const double x2d = point2D.x * scale
-                       + static_cast<double>(window.getSize().x) / 2;
+    double windowHalfedX = static_cast<double>(window.getSize().x) / 2;
+    double windowHalfedY = static_cast<double>(window.getSize().y) / 2;
 
-    const double y2d = -point2D.y * scale
-                       + static_cast<double>(window.getSize().y) / 2;
-
-    return {static_cast<float>(x2d), static_cast<float>(y2d)};
+    return {{
+        {point2D1.x * scale + windowHalfedX, -point2D1.y * scale + windowHalfedY},
+        {point2D2.x * scale + windowHalfedX, -point2D2.y * scale + windowHalfedY},
+        p1.z, p2.z
+    }};
 }
 
 void Projector::onKeyPressed(const sf::Keyboard::Key key) {

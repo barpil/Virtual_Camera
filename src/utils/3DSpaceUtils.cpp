@@ -117,25 +117,30 @@ namespace utils {
         };
     }
 
+    //wystarczy clipping Z, bo SFML dokonuje automatycznie clippingu elementow, które wychodzą za view port
+    //zwraca bool, czy warto rysowac te linie, czy jednak nie ma sensu
+    bool performLineZClipping(Point3D &p1, Point3D &p2, const double zLimit) {
+        //jezeli oba punkty sa za kamera to ich nie rysujemy
+        if (p1.z<zLimit && p2.z<zLimit) return false;
+        //jezeli jeden z nich wymaga przyciecia
+        if (p1.z<zLimit || p2.z<zLimit){
+            //ustawiamy zeby zawsze ten sam punkt byl do przyciecia
+            if (p1.z>zLimit) std::swap(p1, p2); //teraz zawsze p1 to ten niepoprawny
+            double clipFactor = (zLimit - p1.z) / (p2.z - p1.z);
+            //wyznaczamy nowy punkt na granicy zLimit
+            p1.x = p1.x+clipFactor*(p2.x - p1.x);
+            p1.y = p1.y+clipFactor*(p2.y - p1.y);
+            p1.z = zLimit;
+        }
+        return true;
+    }
 
-    Point2D project3DTo2D(const Point3D &cameraPosition, const LocalAxes &cameraAxes, const double focal,
-                          const Point3D &point) {
-        Point3D relativePoint = {
-            point.x - cameraPosition.x,
-            point.y - cameraPosition.y,
-            point.z - cameraPosition.z
-        };
 
-        //rzutujemy pozycje punktu wzgledem ustawienia kamery (mamy iloczyn skalarny relativePoint, czyli pozycji punktu wzgledem pozycji kamery, i ustawienia osi kamery)
-        double localX = relativePoint.x * cameraAxes.right.x + relativePoint.y * cameraAxes.right.y + relativePoint.z *
-                        cameraAxes.right.z;
-        double localY = relativePoint.x * cameraAxes.up.x + relativePoint.y * cameraAxes.up.y + relativePoint.z *
-                        cameraAxes.up.z;
-        double localZ = relativePoint.x * cameraAxes.forward.x + relativePoint.y * cameraAxes.forward.y + relativePoint.z * cameraAxes.forward.z;
-
-        if (localZ <= 1e-4) return {0, 0};//zabezpiecznie przed dzieleniem przez 0
+    //rzutowanie wzgledem osi 0, 0, 0
+    Point2D project3DTo2D(const Point3D &point, const double focal) {
+        if (point.z <= 1e-4) return {0, 0};//zabezpiecznie przed dzieleniem przez 0
         //wyznaczamy rzut punktu 3D na 2D
-        return {(localX * focal) / localZ, (localY * focal) / localZ};
+        return {(point.x * focal) / point.z, (point.y * focal) / point.z};
     }
 
 
@@ -152,4 +157,23 @@ namespace utils {
             vector.z /= vectorLen;
         }
     }
+
+    void transformPointToPointInCameraLocalAxes(Point3D &point, const Point3D &cameraPosition, const LocalAxes &cameraAxes) {
+        Point3D relativePoint = {
+            point.x - cameraPosition.x,
+            point.y - cameraPosition.y,
+            point.z - cameraPosition.z
+        };
+
+        //rzutujemy pozycje punktu wzgledem ustawienia kamery (mamy iloczyn skalarny relativePoint, czyli pozycji punktu wzgledem pozycji kamery, i ustawienia osi kamery)
+        double localX = relativePoint.x * cameraAxes.right.x + relativePoint.y * cameraAxes.right.y + relativePoint.z *
+                        cameraAxes.right.z;
+        double localY = relativePoint.x * cameraAxes.up.x + relativePoint.y * cameraAxes.up.y + relativePoint.z *
+                        cameraAxes.up.z;
+        double localZ = relativePoint.x * cameraAxes.forward.x + relativePoint.y * cameraAxes.forward.y + relativePoint.z * cameraAxes.forward.z;
+
+        point.x = localX;
+        point.y = localY;
+        point.z = localZ;
+    };
 }
