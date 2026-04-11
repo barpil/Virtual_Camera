@@ -41,27 +41,68 @@ std::vector<Figure> ObjectReader::readFiguresFromFile(std::string fileName) {
 }
 
 Figure ObjectReader::createFigureFromString(std::string figureString) {
-    figureString.erase(
-        std::ranges::remove_if(figureString, [](const unsigned char c) {
+    // figureString.erase(
+    //     std::ranges::remove_if(figureString, [](const unsigned char c) {
+    //         return std::isspace(c) || c == '{' || c == '}';
+    //     }).begin(),
+    //     figureString.end()
+    // );
+    std::string originalString = figureString;
+    erase_if(figureString, [](const unsigned char c) {
             return std::isspace(c) || c == '{' || c == '}';
-        }).begin(),
-        figureString.end()
+        }
     );
 
+
+    std::optional<std::string> centerOffsetStringPart;
     std::string pointsStringPart;
     std::string edgesStringPart;
 
     std::stringstream ss(figureString);
     std::string excess;
+    if (figureString.contains('/')) {
+        centerOffsetStringPart.emplace(); //bo inaczej jest nullptr i nie nie da sie poprawnie uzyc wskaznika, bo miejsce w pamieci nie istnieje
+        std::getline(ss, *centerOffsetStringPart, '/'); //opcjonalny parametr do przesuniecia calej figury o offset
+    }
 
     if (!(std::getline(ss, pointsStringPart, '|') &&
        std::getline(ss, edgesStringPart, '|') &&
        !std::getline(ss, excess, '|'))) {
 
-        std::cerr << "Invalid figure input: \"" << figureString << "\"" << std::endl;
-        std::cerr << "Correct input format: Points | Edges (where Point3D is comma separated list of points {x;y;z} and edge is comma separated list of points to connect {start;end})" <<std::endl;
+        std::cerr << "Invalid figure input: \"" << originalString << "\"" << std::endl;
+        std::cerr << "Correct input format: CenterOffset (optional) / Points | Edges (where CenterOffset is an optional passed figure offset from coordinate center, Points is comma separated list of points {x;y;z} and Edges is comma separated list of points to connect {start;end})" <<std::endl
+            << "Example:\n"
+            << "{-1;-1;-1}, {1;-1;-1}, {1;1;-1}, {-1;1;-1} | {0;1}, {1;2}, {2;3}, {3;0}   ->  Cube at center\n"
+            << "OR\n"
+            << "{0;1;0}  /  {-1;-1;-1}, {1;-1;-1}, {1;1;-1}, {-1;1;-1} | {0;1}, {1;2}, {2;3}, {3;0}    ->  Cube offset by {0;1;0}\n";
         exit(-1);
        }
+
+    //OFFSET (if exists)
+    Point3D offset = {0, 0, 0};
+    if (centerOffsetStringPart.has_value()) {
+        std::vector<double> coords;
+        std::stringstream psStream(centerOffsetStringPart.value());
+        std::string value;
+
+        while (std::getline(psStream, value, ';')) {
+            try {
+                coords.push_back(std::stof(value));
+            } catch (...) {
+                std::cerr << "Non integer found in string : " << value << std::endl;
+                exit(1);
+            }
+        }
+
+        if (coords.size() != 3) {
+            std::cerr << "Invalid CenterOffset sequence. Sequence should contain exactly 3 coordinates {x;y;z}: " << centerOffsetStringPart.value() << std::endl;
+        }else {
+            offset = {coords[0], coords[1], coords[2]};
+        }
+    }
+
+
+
 
     // POINTS
     std::vector <std::string> pointStrings;
@@ -88,11 +129,13 @@ Figure ObjectReader::createFigureFromString(std::string figureString) {
         }
 
         if (coords.size() != 3) {
-            std::cerr << "Invalid Point3D sequence. Sequence should contain exactly 3 coordinates {x;y;z}: " << ps << std::endl;
+            std::cerr << "Invalid Point sequence. Sequence should contain exactly 3 coordinates {x;y;z}: " << ps << std::endl;
             continue;
         }
 
-        Point3D p{coords[0], coords[1], coords[2]};
+
+        //adding points with offset
+        Point3D p{coords[0]+offset.x, coords[1]+offset.y, coords[2]+offset.z};
         points.push_back(p);
     }
 
