@@ -44,7 +44,7 @@ private:
 
     void refreshOnScreenText();
 
-    void handleKeyboardInput(float dt);
+    bool handleKeyboardInput(float dt);
     void onMouseWheelScrolled(const sf::Event::MouseWheelScrolled &event);
     void onDrag(Point2D dragStart, Point2D dragEnd);
 };

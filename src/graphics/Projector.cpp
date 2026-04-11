@@ -117,6 +117,7 @@ void Projector::render(const std::vector<Figure> &figureList) {
     bool isDragging = false;
     int keysPressedCount = 0;
     sf::Clock clock;
+    bool refreshNeeded = false;
     while (window.isOpen()) {
         sf::Time elapsed = clock.restart();
         while (const std::optional event = window.pollEvent()) {
@@ -127,7 +128,7 @@ void Projector::render(const std::vector<Figure> &figureList) {
                 keysPressedCount--;
             }else if (event->is<sf::Event::MouseWheelScrolled>()) {
                 onMouseWheelScrolled(*event->getIf<sf::Event::MouseWheelScrolled>());
-                refreshDisplay();
+                refreshNeeded = true;
             } else if (event->is<sf::Event::MouseButtonPressed>()) {
                 if (const auto &mouse = event->getIf<sf::Event::MouseButtonPressed>();
                     mouse->button == sf::Mouse::Button::Left) {
@@ -145,7 +146,7 @@ void Projector::render(const std::vector<Figure> &figureList) {
                     {0.f, 0.f},
                     {static_cast<float>(resized->size.x), static_cast<float>(resized->size.y)}
                 )));
-                refreshDisplay();
+                refreshNeeded = true;
             }
         }
 
@@ -155,13 +156,17 @@ void Projector::render(const std::vector<Figure> &figureList) {
                 onDrag({static_cast<double>(dragStart->x), static_cast<double>(dragStart->y)}, {
                            static_cast<double>(dragEnd.x), static_cast<double>(dragEnd.y)
                        });
-                refreshDisplay();
+                refreshNeeded = true;
                 dragStart = dragEnd;
             }
         }
 
-        if (keysPressedCount > 0) {
-            handleKeyboardInput(elapsed.asSeconds());
+        if (keysPressedCount > 0 && handleKeyboardInput(elapsed.asSeconds())) refreshNeeded = true;
+
+
+        if (refreshNeeded) {
+            refreshDisplay();
+            refreshNeeded = false;
         }
     }
 }
@@ -196,40 +201,42 @@ std::optional<Line2D> Projector::projectLine(const Point3D &point1, const Point3
     }};
 }
 
-void Projector::handleKeyboardInput(const float dt) {
+bool Projector::handleKeyboardInput(const float dt) {
     const double moveSpeed = camera.getMoveSpeed() * dt;
     const double rotateSpeed = camera.getRotationSpeed() * dt;
 
+
+    bool refreshNeeded = false;
     //ruch
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)) {
         camera.move(0, 0, moveSpeed);
-        refreshDisplay();
+        refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)) {
         camera.move(0, 0, -moveSpeed);
-        refreshDisplay();
+        refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
         camera.move(-moveSpeed, 0, 0);
-        refreshDisplay();
+        refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) {
         camera.move(moveSpeed, 0, 0);
-        refreshDisplay();
+        refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space)) {
         camera.move(0, moveSpeed, 0);
-        refreshDisplay();
+        refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift)) {
         camera.move(0, -moveSpeed, 0);
-        refreshDisplay();
+        refreshNeeded = true;
     }
 
     //wyrownanie horyzontu
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
         camera.levelLocalHorizon();
-        refreshDisplay();
+        refreshNeeded = true;
     }
 
     //arcball z klawiatury
@@ -243,39 +250,46 @@ void Projector::handleKeyboardInput(const float dt) {
             screenCenter, {screenCenter.x, screenCenter.y + 10}, 
             window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
         camera.rotate(xRotation, yRotation, 0);
-        refreshDisplay();
+        refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
         auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
             screenCenter, {screenCenter.x, screenCenter.y - 10}, 
             window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
         camera.rotate(xRotation, yRotation, 0);
-        refreshDisplay();
+        refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
         auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
             screenCenter, {screenCenter.x - 10, screenCenter.y}, 
             window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
         camera.rotate(xRotation, yRotation, 0);
-        refreshDisplay();
+        refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
         auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
             screenCenter, {screenCenter.x + 10, screenCenter.y}, 
             window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
         camera.rotate(xRotation, yRotation, 0);
-        refreshDisplay();
+        refreshNeeded = true;
     }
 
     //beczka
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q)) {
         camera.rotate(0, 0, rotateSpeed);
-        refreshDisplay();
+        refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E)) {
         camera.rotate(0, 0, -rotateSpeed);
-        refreshDisplay();
+        refreshNeeded = true;
     }
+
+
+
+    if (refreshNeeded) {
+        return true;
+    }
+    return false;
 }
 
 

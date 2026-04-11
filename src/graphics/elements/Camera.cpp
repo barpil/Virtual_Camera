@@ -73,7 +73,6 @@ bool Camera::levelLocalHorizon() {
     if (absY > maxComponent) maxComponent = absY;
     if (absZ > maxComponent) maxComponent = absZ;
     if (maxComponent > 0.999999) {
-        std::cout << "Skonczono levelowac\n";
         return false;
     }
 

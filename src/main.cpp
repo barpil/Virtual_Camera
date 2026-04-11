@@ -6,8 +6,8 @@
 
 int main() {
     // auto figures = ObjectReader::readFiguresFromFile("../resources/szescian.txt");
-    // auto figures = ObjectReader::readFiguresFromFile("../resources/szescian_4_x_4.txt");
-    auto figures = ObjectReader::readFiguresFromFile("../resources/duzo_pudelek.txt");
+    auto figures = ObjectReader::readFiguresFromFile("../resources/szescian_4_x_4.txt");
+    // auto figures = ObjectReader::readFiguresFromFile("../resources/duzo_pudelek.txt");
 
     const Camera camera(Point3D{0, 0, 0}, 200, 3, 30, 0.1, -1, 0.0001);
 
