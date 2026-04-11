@@ -13,6 +13,7 @@
 #include <SFML/Graphics/VertexArray.hpp>
 
 #include "../utils/3DSpaceUtils.h"
+#include "../utils/MySFMLUtils.h"
 #include "binaries/RobotoMonoFont.h"
 #include "elements/Camera.h"
 
@@ -24,8 +25,6 @@ Projector::Projector(const int screenWidth, const int screenHeight, const Camera
                   "Virutal Camera");
     window.setFramerateLimit(60);
 
-    lines.setPrimitiveType(sf::PrimitiveType::Lines);
-
     if (!font.openFromMemory(RobotoMonoFont_ttf, RobotoMonoFont_ttf_len)) {
         std::cerr << "Failed to load font\n";
     }
@@ -35,14 +34,7 @@ Projector::Projector(const int screenWidth, const int screenHeight, const Camera
 //minZ to kiedy osiagamy pelna jasnosc, a maxZ to kiedy pelna ciemnosc
 sf::Color calculateDepthColor(const sf::Color baseColor, const double z, double minZ, double maxZ) {
     //mapujemy polozenie z na wspolczynnik glebokosci
-    double factor = (maxZ - z) / (maxZ - minZ);
-    //przycinamy wartosci do <0.01, 1>
-    factor = std::clamp(factor, 0.0, 1.0);
-
-    factor = std::pow(factor, 0.7);
-    //ambient jako minimalna wartosc jasnosci
-    const double ambient = 0.3;
-    factor = ambient + (factor * (1.0 - ambient));
+    double factor = utils::calculateDepthFactor(z, minZ, maxZ, 0.3, 1, 0.7);
 
     return {
         static_cast<uint8_t>(baseColor.r * factor),
@@ -53,19 +45,29 @@ sf::Color calculateDepthColor(const sf::Color baseColor, const double z, double 
 
 void Projector::drawFigure(const Figure &figure) {
     for (const auto &[start, end]: figure.edges) {
+        sf::VertexArray vertexes;
+        vertexes.setPrimitiveType(sf::PrimitiveType::TriangleFan);
         auto projectedLine = projectLine(figure.points[start], figure.points[end]);
         if (!projectedLine) continue;
 
         const Line2D line = projectedLine.value();
-        const sf::Vector2f v1 = {static_cast<float>(line.start.x), static_cast<float>(line.start.y)};
-        const sf::Vector2f v2 = {static_cast<float>(line.end.x), static_cast<float>(line.end.y)};
+        const Line2DWithThickness lineWithThickness = utils::createLine2DWithThicknessFromLine(line, 1, 15, camera.getFocal());
+
+        const sf::Vector2f v1 = {static_cast<float>(lineWithThickness.startL.x), static_cast<float>(lineWithThickness.startL.y)};
+        const sf::Vector2f v2 = {static_cast<float>(lineWithThickness.startR.x), static_cast<float>(lineWithThickness.startR.y)};
+        const sf::Vector2f v3 = {static_cast<float>(lineWithThickness.endL.x), static_cast<float>(lineWithThickness.endL.y)};
+        const sf::Vector2f v4 = {static_cast<float>(lineWithThickness.endR.x), static_cast<float>(lineWithThickness.endR.y)};
 
         //uzaleznienie koloru od oddalenia punktu
-        sf::Color color1 = calculateDepthColor(sf::Color::Green, line.startZDepth, 0.3, 2);
-        sf::Color color2 = calculateDepthColor(sf::Color::Green, line.endZDepth, 0.3, 2);
+        const sf::Color color1 = calculateDepthColor(figure.color, line.startZDepth, 0.3, 2);
+        const sf::Color color2 = calculateDepthColor(figure.color, line.endZDepth, 0.3, 2);
 
-        lines.append(sf::Vertex{v1, color1});
-        lines.append(sf::Vertex{v2, color2});
+        vertexes.append(sf::Vertex{v1, color1});
+        vertexes.append(sf::Vertex{v2, color1});
+        vertexes.append(sf::Vertex{v3, color2});
+        vertexes.append(sf::Vertex{v4, color2});
+
+        vertexesVector.push_back(vertexes);
     }
 }
 
@@ -95,7 +97,7 @@ void Projector::refreshOnScreenText() {
 }
 
 void Projector::clearLineBuffer() {
-    lines.clear();
+    vertexesVector.clear();
 }
 
 void Projector::redrawFigures() {
@@ -103,7 +105,9 @@ void Projector::redrawFigures() {
     for (Figure const &figure: figures) {
         drawFigure(figure);
     }
-    window.draw(lines);
+    for (sf::VertexArray va : vertexesVector) {
+        window.draw(va);
+    }
 }
 
 void Projector::render(const std::vector<Figure> &figureList) {
@@ -111,14 +115,17 @@ void Projector::render(const std::vector<Figure> &figureList) {
     refreshDisplay();
     std::optional<sf::Vector2i> dragStart;
     bool isDragging = false;
+    int keysPressedCount = 0;
+    sf::Clock clock;
     while (window.isOpen()) {
+        sf::Time elapsed = clock.restart();
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) window.close();
             else if (event->is<sf::Event::KeyPressed>()) {
-                const auto &key = event->getIf<sf::Event::KeyPressed>();
-                onKeyPressed(key->code);
-                refreshDisplay();
-            } else if (event->is<sf::Event::MouseWheelScrolled>()) {
+                keysPressedCount++;
+            } else if (event->is<sf::Event::KeyReleased>()) {
+                keysPressedCount--;
+            }else if (event->is<sf::Event::MouseWheelScrolled>()) {
                 onMouseWheelScrolled(*event->getIf<sf::Event::MouseWheelScrolled>());
                 refreshDisplay();
             } else if (event->is<sf::Event::MouseButtonPressed>()) {
@@ -152,6 +159,10 @@ void Projector::render(const std::vector<Figure> &figureList) {
                 dragStart = dragEnd;
             }
         }
+
+        if (keysPressedCount > 0) {
+            handleKeyboardInput(elapsed.asSeconds());
+        }
     }
 }
 
@@ -163,7 +174,7 @@ std::optional<Line2D> Projector::projectLine(const Point3D &point1, const Point3
 
     utils::transformPointToPointInCameraLocalAxes(p1, camera.getCameraPosition(), camera.getLocalOrientation());
     utils::transformPointToPointInCameraLocalAxes(p2, camera.getCameraPosition(), camera.getLocalOrientation());
-    if (const double zLimit = 0.001 * camera.getFocal(); !utils::performLineZClipping(p1, p2, zLimit)) return std::nullopt;
+    if (!utils::performLineZClipping(p1, p2, camera.getZClippingValue())) return std::nullopt;
 
     Point2D point2D1 = utils::project3DTo2D(p1, camera.getFocal());
     Point2D point2D2 = utils::project3DTo2D(p2, camera.getFocal());
@@ -185,77 +196,85 @@ std::optional<Line2D> Projector::projectLine(const Point3D &point1, const Point3
     }};
 }
 
-void Projector::onKeyPressed(const sf::Keyboard::Key key) {
-    switch (key) {
-        case sf::Keyboard::Key::W:
-            camera.move(0, 0, 0.1);
-            break;
-        case sf::Keyboard::Key::A:
-            camera.move(-0.1, 0, 0);
-            break;
-        case sf::Keyboard::Key::S:
-            camera.move(0, 0, -0.1);
-            break;
-        case sf::Keyboard::Key::D:
-            camera.move(0.1, 0, 0);
-            break;
-        case sf::Keyboard::Key::Space:
-            camera.move(0, 0.1, 0);
-            break;
-        case sf::Keyboard::Key::LShift:
-            camera.move(0, -0.1, 0);
-            break;
-        case sf::Keyboard::Key::R:
-            camera.levelLocalHorizon();
-            break;
-        case sf::Keyboard::Key::Up: {
-            const Point2D screenCenter = {
-                static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2
-            };
-            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
-                screenCenter, {screenCenter.x, screenCenter.y + 10}, window.getSize().x,
-                window.getSize().y, ARCBALL_SENSITIVITY);
-            camera.rotate(xRotation, yRotation, 0);
-            break;
-        }
-        case sf::Keyboard::Key::Down: {
-            const Point2D screenCenter = {
-                static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2
-            };
-            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
-                screenCenter, {screenCenter.x, screenCenter.y - 10}, window.getSize().x,
-                window.getSize().y, ARCBALL_SENSITIVITY);
-            camera.rotate(xRotation, yRotation, 0);
-            break;
-        }
-        case sf::Keyboard::Key::Left: {
-            const Point2D screenCenter = {
-                static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2
-            };
-            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
-                screenCenter, {screenCenter.x - 10, screenCenter.y}, window.getSize().x,
-                window.getSize().y, ARCBALL_SENSITIVITY);
-            camera.rotate(xRotation, yRotation, 0);
-            break;
-        }
-        case sf::Keyboard::Key::Right: {
-            const Point2D screenCenter = {
-                static_cast<double>(window.getSize().x) / 2, static_cast<double>(window.getSize().y) / 2
-            };
-            auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
-                screenCenter, {screenCenter.x + 10, screenCenter.y}, window.getSize().x,
-                window.getSize().y, ARCBALL_SENSITIVITY);
-            camera.rotate(xRotation, yRotation, 0);
-            break;
-        }
-        case sf::Keyboard::Key::Q:
-            camera.rotate(0, 0, 1);
-            break;
-        case sf::Keyboard::Key::E:
-            camera.rotate(0, 0, -1);
-            break;
-        default:
-            break;
+void Projector::handleKeyboardInput(const float dt) {
+    const double moveSpeed = camera.getMoveSpeed() * dt;
+    const double rotateSpeed = camera.getRotationSpeed() * dt;
+
+    //ruch
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)) {
+        camera.move(0, 0, moveSpeed);
+        refreshDisplay();
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)) {
+        camera.move(0, 0, -moveSpeed);
+        refreshDisplay();
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
+        camera.move(-moveSpeed, 0, 0);
+        refreshDisplay();
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) {
+        camera.move(moveSpeed, 0, 0);
+        refreshDisplay();
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space)) {
+        camera.move(0, moveSpeed, 0);
+        refreshDisplay();
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift)) {
+        camera.move(0, -moveSpeed, 0);
+        refreshDisplay();
+    }
+
+    //wyrownanie horyzontu
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
+        camera.levelLocalHorizon();
+        refreshDisplay();
+    }
+
+    //arcball z klawiatury
+    const Point2D screenCenter = {
+        static_cast<double>(window.getSize().x) / 2, 
+        static_cast<double>(window.getSize().y) / 2
+    };
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) {
+        auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
+            screenCenter, {screenCenter.x, screenCenter.y + 10}, 
+            window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
+        camera.rotate(xRotation, yRotation, 0);
+        refreshDisplay();
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
+        auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
+            screenCenter, {screenCenter.x, screenCenter.y - 10}, 
+            window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
+        camera.rotate(xRotation, yRotation, 0);
+        refreshDisplay();
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
+        auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
+            screenCenter, {screenCenter.x - 10, screenCenter.y}, 
+            window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
+        camera.rotate(xRotation, yRotation, 0);
+        refreshDisplay();
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
+        auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
+            screenCenter, {screenCenter.x + 10, screenCenter.y}, 
+            window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
+        camera.rotate(xRotation, yRotation, 0);
+        refreshDisplay();
+    }
+
+    //beczka
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q)) {
+        camera.rotate(0, 0, rotateSpeed);
+        refreshDisplay();
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E)) {
+        camera.rotate(0, 0, -rotateSpeed);
+        refreshDisplay();
     }
 }
 

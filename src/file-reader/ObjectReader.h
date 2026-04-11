@@ -17,6 +17,7 @@ public:
 
 private:
     static Figure createFigureFromString(std::string figureString);
+    static std::vector<Point3D> readPointsFromString(const std::string &inputString, const char pointsDelimiter, const char coordinateDelimiter,const Point3D &offset);
 };
 
 

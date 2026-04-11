@@ -5,9 +5,6 @@
 #ifndef WIRTUALNA_KAMERA_POINT_H
 #define WIRTUALNA_KAMERA_POINT_H
 
-#endif //WIRTUALNA_KAMERA_POINT_H
-
-
 struct Point3D {
     double x;
     double y;
@@ -25,3 +22,16 @@ struct Line2D {
     double startZDepth;
     double endZDepth;
 };
+
+struct Line2DWithThickness {
+    Point2D startL;
+    Point2D startR;
+    Point2D endL;
+    Point2D endR;
+    double startZDepth;
+    double endZDepth;
+};
+
+#endif //WIRTUALNA_KAMERA_POINT_H
+
+

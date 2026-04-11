@@ -19,10 +19,13 @@ class Camera {
     double focal;
     double rotationPrecision;
     double movePrecision;
+    double zLimit;
+    double moveSpeed;
+    double rotationSpeed;
 
 public:
-    Camera(const Point3D &initialPosition, const double initialFocal, const double rotationPrecision, const double movePrecision) :
-        cameraPosition(initialPosition), focal(initialFocal), rotationPrecision(rotationPrecision), movePrecision(movePrecision) {
+    Camera(const Point3D &initialPosition, const double initialFocal, const double moveSpeed, const double rotationSpeed, const double rotationPrecision, const double movePrecision, const double zLimit) :
+        cameraPosition(initialPosition), focal(initialFocal), moveSpeed(moveSpeed), rotationSpeed(rotationSpeed), rotationPrecision(rotationPrecision), movePrecision(movePrecision), zLimit(zLimit) {
     }
 
     [[nodiscard]] Point3D getCameraPosition() const {
@@ -33,8 +36,20 @@ public:
         return localOrientation;
     }
 
+    [[nodiscard]] double getMoveSpeed() const {
+        return moveSpeed;
+    }
+
+    [[nodiscard]] double getRotationSpeed() const {
+        return rotationSpeed;
+    }
+
     [[nodiscard]] double getFocal() const {
         return focal;
+    }
+
+    [[nodiscard]] double getZClippingValue() const {
+        return zLimit*focal;
     }
 
     void move(double xChange, double yChange, double zChange);

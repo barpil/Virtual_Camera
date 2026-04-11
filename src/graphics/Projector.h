@@ -20,7 +20,7 @@ class Projector {
     int screenWidth;
     int screenHeight;
     sf::RenderWindow window;
-    sf::VertexArray lines;
+    std::vector<sf::VertexArray> vertexesVector;
     sf::Text cameraPositionText;
     sf::Font font;
     Camera camera;
@@ -44,7 +44,7 @@ private:
 
     void refreshOnScreenText();
 
-    void onKeyPressed(sf::Keyboard::Key key);
+    void handleKeyboardInput(float dt);
     void onMouseWheelScrolled(const sf::Event::MouseWheelScrolled &event);
     void onDrag(Point2D dragStart, Point2D dragEnd);
 };

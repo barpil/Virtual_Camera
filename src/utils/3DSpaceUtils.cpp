@@ -175,5 +175,17 @@ namespace utils {
         point.x = localX;
         point.y = localY;
         point.z = localZ;
-    };
+    }
+
+    double calculateDepthFactor(const double z, const double minZ, const double maxZ, const double minFactor, const double maxFactor, const double factorExponent) {
+        //mapujemy polozenie z na wspolczynnik glebokosci. minZ i maxZ okresla dla jakich wartosci z factor zaczyna przyjmowac minimalna/maksymalna wartosc
+        double factor = (maxZ - z) / (maxZ - minZ);
+        //przycinamy wartosci do <0, 1>
+        factor = std::clamp(factor, 0.0, 1.0);
+        //dostosowujemy sobie tempo i w ktorym kierunku exponent rosnie szybciej, a w ktorym wolniej (jak > 0 to szybciej maleje, jak < 0 to szybicej rosnie
+        factor = std::pow(factor, factorExponent);
+        //przemapowanie na zakres <minFactor, maxFactor>
+        factor = std::lerp(minFactor, maxFactor, factor);
+        return factor;
+    }
 }
