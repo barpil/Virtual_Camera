@@ -116,6 +116,7 @@ void Projector::render(const std::vector<Figure> &figureList) {
     std::optional<sf::Vector2i> dragStart;
     bool isDragging = false;
     int keysPressedCount = 0;
+    bool canTakePhoto = true;
     sf::Clock clock;
     bool refreshNeeded = false;
     while (window.isOpen()) {
@@ -123,9 +124,14 @@ void Projector::render(const std::vector<Figure> &figureList) {
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) window.close();
             else if (event->is<sf::Event::KeyPressed>()) {
-                keysPressedCount++;
+                keysPressedCount++; //ale to sprawdzanie czy jest wcisniety trzeba na koniec dac
+                if (canTakePhoto && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::P)) {
+                    takePhoto();
+                    canTakePhoto = false;
+                }
             } else if (event->is<sf::Event::KeyReleased>()) {
                 keysPressedCount--;
+                if (!canTakePhoto && !sf::Keyboard::isKeyPressed(sf::Keyboard::Key::P)) canTakePhoto = true;
             }else if (event->is<sf::Event::MouseWheelScrolled>()) {
                 onMouseWheelScrolled(*event->getIf<sf::Event::MouseWheelScrolled>());
                 refreshNeeded = true;
@@ -200,6 +206,26 @@ std::optional<Line2D> Projector::projectLine(const Point3D &point1, const Point3
         p1.z, p2.z
     }};
 }
+
+
+void Projector::takePhoto() {
+    auto now = std::chrono::system_clock::now();
+    std::string outputFilePath = std::format("./photo-{:%Y%m%d_%H%M%S}.png", now);
+    sf::Texture texture;
+    if (!texture.resize({window.getSize().x, window.getSize().y})) {
+        std::cerr << "An error occured while trying to take photo." << std::endl;
+        return;
+    }
+    window.clear();
+    redrawFigures();
+    texture.update(window);
+    if (const sf::Image screenshot = texture.copyToImage(); screenshot.saveToFile(outputFilePath)) {
+        std::cout << std::format("Photo saved at: {}", outputFilePath) << std::endl;
+    } else {
+        std::cerr << "An error occured while trying to save taken photo." << std::endl;
+    }
+}
+
 
 bool Projector::handleKeyboardInput(const float dt) {
     const double moveSpeed = camera.getMoveSpeed() * dt;

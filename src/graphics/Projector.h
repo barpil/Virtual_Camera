@@ -47,6 +47,7 @@ private:
     bool handleKeyboardInput(float dt);
     void onMouseWheelScrolled(const sf::Event::MouseWheelScrolled &event);
     void onDrag(Point2D dragStart, Point2D dragEnd);
+    void takePhoto();
 };
 
 
