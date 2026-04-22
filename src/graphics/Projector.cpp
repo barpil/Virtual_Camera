@@ -67,10 +67,10 @@ void Projector::drawFigureNet(const Figure &figure) {
             static_cast<float>(lineWithThickness.startR.x), static_cast<float>(lineWithThickness.startR.y)
         };
         const sf::Vector2f v3 = {
-            static_cast<float>(lineWithThickness.endL.x), static_cast<float>(lineWithThickness.endL.y)
+            static_cast<float>(lineWithThickness.endR.x), static_cast<float>(lineWithThickness.endR.y)
         };
         const sf::Vector2f v4 = {
-            static_cast<float>(lineWithThickness.endR.x), static_cast<float>(lineWithThickness.endR.y)
+            static_cast<float>(lineWithThickness.endL.x), static_cast<float>(lineWithThickness.endL.y)
         };
 
         //uzaleznienie koloru od oddalenia punktu
