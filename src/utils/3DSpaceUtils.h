@@ -24,6 +24,7 @@ namespace utils {
     Point3D rotateByAxis(const Point3D &point, const Point3D &axis, const double angleRad);
     void normalizeVector(Point3D &vector);
     bool performLineZClipping(Point3D &point1, Point3D &point2, const double zLimit);
+    std::optional<std::vector<Point3D>> performPolygonZClipping(std::vector<Point3D> &points, const double zLimit);
     void transformPointToPointInCameraLocalAxes(Point3D &point, const Point3D &cameraPosition, const LocalAxes &cameraAxes);
     double calculateDepthFactor(double z, double minZ, double maxZ, double minFactor, double maxFactor, double factorExponent);
 }

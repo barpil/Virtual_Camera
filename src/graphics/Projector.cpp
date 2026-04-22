@@ -6,6 +6,7 @@
 
 #include "Projector.h"
 
+#include <algorithm>
 #include <cmath>
 #include <SFML/Graphics/Font.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
@@ -44,6 +45,11 @@ sf::Color calculateDepthColor(const sf::Color baseColor, const double z, double 
 }
 
 void Projector::drawFigure(const Figure &figure) {
+    drawFigureNet(figure);
+    drawFigureWalls(figure);
+}
+
+void Projector::drawFigureNet(const Figure &figure) {
     for (const auto &[start, end]: figure.edges) {
         sf::VertexArray vertexes;
         vertexes.setPrimitiveType(sf::PrimitiveType::TriangleFan);
@@ -51,12 +57,21 @@ void Projector::drawFigure(const Figure &figure) {
         if (!projectedLine) continue;
 
         const Line2D line = projectedLine.value();
-        const Line2DWithThickness lineWithThickness = utils::createLine2DWithThicknessFromLine(line, 1, 15, camera.getFocal());
+        const Line2DWithThickness lineWithThickness = utils::createLine2DWithThicknessFromLine(
+            line, 1, 15, camera.getFocal());
 
-        const sf::Vector2f v1 = {static_cast<float>(lineWithThickness.startL.x), static_cast<float>(lineWithThickness.startL.y)};
-        const sf::Vector2f v2 = {static_cast<float>(lineWithThickness.startR.x), static_cast<float>(lineWithThickness.startR.y)};
-        const sf::Vector2f v3 = {static_cast<float>(lineWithThickness.endL.x), static_cast<float>(lineWithThickness.endL.y)};
-        const sf::Vector2f v4 = {static_cast<float>(lineWithThickness.endR.x), static_cast<float>(lineWithThickness.endR.y)};
+        const sf::Vector2f v1 = {
+            static_cast<float>(lineWithThickness.startL.x), static_cast<float>(lineWithThickness.startL.y)
+        };
+        const sf::Vector2f v2 = {
+            static_cast<float>(lineWithThickness.startR.x), static_cast<float>(lineWithThickness.startR.y)
+        };
+        const sf::Vector2f v3 = {
+            static_cast<float>(lineWithThickness.endL.x), static_cast<float>(lineWithThickness.endL.y)
+        };
+        const sf::Vector2f v4 = {
+            static_cast<float>(lineWithThickness.endR.x), static_cast<float>(lineWithThickness.endR.y)
+        };
 
         //uzaleznienie koloru od oddalenia punktu
         const sf::Color color1 = calculateDepthColor(figure.color, line.startZDepth, 0.3, 2);
@@ -71,6 +86,35 @@ void Projector::drawFigure(const Figure &figure) {
     }
 }
 
+void Projector::drawFigureWalls(const Figure &figure) {
+    sf::Color wallsColor = {
+        static_cast<uint8_t>(figure.color.r * 0.6), static_cast<uint8_t>(figure.color.g * 0.6),
+        static_cast<uint8_t>(figure.color.b * 0.6)
+    };
+    for (const auto &[vertexIdxs]: figure.walls) {
+        sf::VertexArray vertexes;
+        vertexes.setPrimitiveType(sf::PrimitiveType::TriangleFan);
+
+        std::vector<Point3D> wallPointsVector(vertexIdxs.size());
+        std::ranges::transform(vertexIdxs, wallPointsVector.begin(), [&figure](int idx) {
+            return figure.points[idx];
+        });
+        auto projectedWallOpt = projectWall(wallPointsVector);
+        if (!projectedWallOpt) continue;
+
+        auto const& projectedWall = projectedWallOpt.value();
+
+        for (auto const& point : projectedWall) {
+            const sf::Color color = calculateDepthColor(wallsColor, point.z, 0.3, 2);
+            const sf::Vector2f v = {static_cast<float>(point.x), static_cast<float>(point.y)};
+            vertexes.append(sf::Vertex{v, color});
+        }
+
+        vertexesVector.push_back(vertexes);
+    }
+}
+
+
 void Projector::refreshDisplay() {
     window.clear();
     refreshOnScreenText();
@@ -80,15 +124,15 @@ void Projector::refreshDisplay() {
 
 void Projector::refreshOnScreenText() {
     cameraPositionText.setString(std::format(
-        "Camera:\nPosition: (x:{:.2f}; y:{:.2f}; z:{:.2f})\nRotation: (ax:{:.2f}; ay:{:.2f}; az:{:.2f})\nFocal   : {}",
-        camera.getCameraPosition().x,
-        camera.getCameraPosition().y, camera.getCameraPosition().z,
-        //Przeliczenie pozycji osi kamery na rotacje w stopniach
-        std::asin(-camera.getLocalOrientation().forward.y) * 180.0 / M_PI,
-        std::atan2(camera.getLocalOrientation().forward.x, camera.getLocalOrientation().forward.z) * 180.0 / M_PI,
-        std::atan2(camera.getLocalOrientation().right.y, camera.getLocalOrientation().up.y) * 180.0 / M_PI,
-        camera.getFocal())
-        );
+            "Camera:\nPosition: (x:{:.2f}; y:{:.2f}; z:{:.2f})\nRotation: (ax:{:.2f}; ay:{:.2f}; az:{:.2f})\nFocal   : {}",
+            camera.getCameraPosition().x,
+            camera.getCameraPosition().y, camera.getCameraPosition().z,
+            //Przeliczenie pozycji osi kamery na rotacje w stopniach
+            std::asin(-camera.getLocalOrientation().forward.y) * 180.0 / M_PI,
+            std::atan2(camera.getLocalOrientation().forward.x, camera.getLocalOrientation().forward.z) * 180.0 / M_PI,
+            std::atan2(camera.getLocalOrientation().right.y, camera.getLocalOrientation().up.y) * 180.0 / M_PI,
+            camera.getFocal())
+    );
     cameraPositionText.setPosition({
         static_cast<float>(window.getSize().x) - cameraPositionText.getLocalBounds().size.x - 10.f,
         10.f
@@ -105,7 +149,7 @@ void Projector::redrawFigures() {
     for (Figure const &figure: figures) {
         drawFigure(figure);
     }
-    for (sf::VertexArray va : vertexesVector) {
+    for (sf::VertexArray va: vertexesVector) {
         window.draw(va);
     }
 }
@@ -132,7 +176,7 @@ void Projector::render(const std::vector<Figure> &figureList) {
             } else if (event->is<sf::Event::KeyReleased>()) {
                 keysPressedCount--;
                 if (!canTakePhoto && !sf::Keyboard::isKeyPressed(sf::Keyboard::Key::P)) canTakePhoto = true;
-            }else if (event->is<sf::Event::MouseWheelScrolled>()) {
+            } else if (event->is<sf::Event::MouseWheelScrolled>()) {
                 onMouseWheelScrolled(*event->getIf<sf::Event::MouseWheelScrolled>());
                 refreshNeeded = true;
             } else if (event->is<sf::Event::MouseButtonPressed>()) {
@@ -179,7 +223,6 @@ void Projector::render(const std::vector<Figure> &figureList) {
 
 
 std::optional<Line2D> Projector::projectLine(const Point3D &point1, const Point3D &point2) const {
-
     Point3D p1 = point1;
     Point3D p2 = point2;
 
@@ -200,13 +243,40 @@ std::optional<Line2D> Projector::projectLine(const Point3D &point1, const Point3
     double windowHalfedX = static_cast<double>(window.getSize().x) / 2;
     double windowHalfedY = static_cast<double>(window.getSize().y) / 2;
 
-    return {{
-        {point2D1.x * scale + windowHalfedX, -point2D1.y * scale + windowHalfedY},
-        {point2D2.x * scale + windowHalfedX, -point2D2.y * scale + windowHalfedY},
-        p1.z, p2.z
-    }};
+    return {
+        {
+            {point2D1.x * scale + windowHalfedX, -point2D1.y * scale + windowHalfedY},
+            {point2D2.x * scale + windowHalfedX, -point2D2.y * scale + windowHalfedY},
+            p1.z, p2.z
+        }
+    };
 }
 
+std::optional<std::vector<Point3D> > Projector::projectWall(const std::vector<Point3D> &points) const {
+    auto pointsVector = points;
+    for (Point3D &point : pointsVector) {
+        utils::transformPointToPointInCameraLocalAxes(point, camera.getCameraPosition(), camera.getLocalOrientation());
+    }
+    auto clippedPointsOpt = utils::performPolygonZClipping(pointsVector, camera.getZClippingValue());
+    if (!clippedPointsOpt) return std::nullopt;
+    std::vector<Point3D> clippedPoints = clippedPointsOpt.value();
+    const double scaleX = static_cast<double>(window.getSize().x) / screenWidth;
+    const double scaleY = static_cast<double>(window.getSize().y) / screenHeight;
+    const double scale = std::min(scaleX, scaleY);
+
+
+    double windowHalfedX = static_cast<double>(window.getSize().x) / 2;
+    double windowHalfedY = static_cast<double>(window.getSize().y) / 2;
+
+    for (Point3D &point: clippedPoints) {
+        auto [x, y] = utils::project3DTo2D(point, camera.getFocal());
+        point = {
+            x * scale + windowHalfedX, -y * scale + windowHalfedY, point.z
+        };
+    }
+
+    return clippedPoints;
+}
 
 void Projector::takePhoto() {
     auto now = std::chrono::system_clock::now();
@@ -267,34 +337,34 @@ bool Projector::handleKeyboardInput(const float dt) {
 
     //arcball z klawiatury
     const Point2D screenCenter = {
-        static_cast<double>(window.getSize().x) / 2, 
+        static_cast<double>(window.getSize().x) / 2,
         static_cast<double>(window.getSize().y) / 2
     };
 
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) {
         auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
-            screenCenter, {screenCenter.x, screenCenter.y + 10}, 
+            screenCenter, {screenCenter.x, screenCenter.y + 10},
             window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
         camera.rotate(xRotation, yRotation, 0);
         refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
         auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
-            screenCenter, {screenCenter.x, screenCenter.y - 10}, 
+            screenCenter, {screenCenter.x, screenCenter.y - 10},
             window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
         camera.rotate(xRotation, yRotation, 0);
         refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
         auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
-            screenCenter, {screenCenter.x - 10, screenCenter.y}, 
+            screenCenter, {screenCenter.x - 10, screenCenter.y},
             window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
         camera.rotate(xRotation, yRotation, 0);
         refreshNeeded = true;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
         auto [xRotation, yRotation, zRotation] = utils::calculateRotationWithArcball(
-            screenCenter, {screenCenter.x + 10, screenCenter.y}, 
+            screenCenter, {screenCenter.x + 10, screenCenter.y},
             window.getSize().x, window.getSize().y, ARCBALL_SENSITIVITY);
         camera.rotate(xRotation, yRotation, 0);
         refreshNeeded = true;
@@ -309,7 +379,6 @@ bool Projector::handleKeyboardInput(const float dt) {
         camera.rotate(0, 0, -rotateSpeed);
         refreshNeeded = true;
     }
-
 
 
     if (refreshNeeded) {

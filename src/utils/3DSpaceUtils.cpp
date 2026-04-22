@@ -117,22 +117,58 @@ namespace utils {
         };
     }
 
+    Point3D calculateIntersectionPointWithZPlane(const Point3D& p1, const Point3D& p2, double zValue) {
+        double clipFactor = (zValue - p1.z) / (p2.z - p1.z);
+        //wyznaczamy nowy punkt na granicy zValue
+        return {
+            p1.x+clipFactor*(p2.x - p1.x),
+            p1.y+clipFactor*(p2.y - p1.y),
+            zValue
+        };
+    }
+
+
     //wystarczy clipping Z, bo SFML dokonuje automatycznie clippingu elementow, które wychodzą za view port
     //zwraca bool, czy warto rysowac te linie, czy jednak nie ma sensu
     bool performLineZClipping(Point3D &p1, Point3D &p2, const double zLimit) {
+        bool p1IsVisible = p1.z >= zLimit;
+        bool p2IsVisible = p2.z >= zLimit;
         //jezeli oba punkty sa za kamera to ich nie rysujemy
-        if (p1.z<zLimit && p2.z<zLimit) return false;
+        if (!p1IsVisible && !p2IsVisible) return false;
         //jezeli jeden z nich wymaga przyciecia
-        if (p1.z<zLimit || p2.z<zLimit){
+        if (std::bit_xor<>()(p1IsVisible, p2IsVisible)){
             //ustawiamy zeby zawsze ten sam punkt byl do przyciecia
             if (p1.z>zLimit) std::swap(p1, p2); //teraz zawsze p1 to ten niepoprawny
-            double clipFactor = (zLimit - p1.z) / (p2.z - p1.z);
-            //wyznaczamy nowy punkt na granicy zLimit
-            p1.x = p1.x+clipFactor*(p2.x - p1.x);
-            p1.y = p1.y+clipFactor*(p2.y - p1.y);
-            p1.z = zLimit;
+            p1 = calculateIntersectionPointWithZPlane(p1, p2, zLimit);
         }
         return true;
+    }
+
+    std::optional<std::vector<Point3D>> performPolygonZClipping(std::vector<Point3D> &points, const double zLimit) {
+        std::vector<Point3D> clippedPoints;
+
+        for (int i = 0; i < points.size(); i++) {
+            const Point3D& p1 = points[i];
+            const Point3D& p2 = points[(i+1)%points.size()];
+
+            const bool p1IsVisible = p1.z >= zLimit;
+            const bool p2IsVisible = p2.z >= zLimit;
+
+            if (p1IsVisible && p2IsVisible) {
+                //jak oba widoczne to po prostu dodajemy nastepny
+                clippedPoints.push_back(p2);
+            } else if (p1IsVisible && !p2IsVisible) {
+                //jezeli punkt koncowy wychodzi za ekram to dodajemy jego przeciecie z plaszczyzna Z
+                clippedPoints.push_back(calculateIntersectionPointWithZPlane(p1, p2, zLimit));
+            } else if (!p1IsVisible && p2IsVisible) {
+                //jezeli punkt poczatkowy wychodzi za ekran, a koncowy nie to dodajemy przeciecie poczatku z plaszczyzna Z i punkt koncowy
+                clippedPoints.push_back(calculateIntersectionPointWithZPlane(p1, p2, zLimit));
+                clippedPoints.push_back(p2);
+            }
+            //jak oba poza to nic nie dodajemy
+        }
+        if (clippedPoints.empty()) return std::nullopt;
+        return clippedPoints;
     }
 
 

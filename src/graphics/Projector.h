@@ -40,8 +40,10 @@ public:
 
 private:
     std::optional<Line2D> projectLine(const Point3D &point1, const Point3D &point2) const;
+    std::optional<std::vector<Point3D>> projectWall(const std::vector<Point3D> &points) const;
     void redrawFigures();
-
+    void drawFigureNet(const Figure &figure);
+    void drawFigureWalls(const Figure &figure);
     void refreshOnScreenText();
 
     bool handleKeyboardInput(float dt);
