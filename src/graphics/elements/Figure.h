@@ -17,16 +17,22 @@ struct Edge {
     int end;
 };
 
+struct Wall {
+    std::vector<int> vertexIdxs;
+};
+
 class Figure {
 public:
     std::vector<Point3D> points;
     std::vector<Edge> edges;
     sf::Color color;
+    std::vector<Wall> walls;
 
-    explicit Figure(const std::vector<Point3D> &points, const std::vector<Edge> &edges, const sf::Color &color)
+    explicit Figure(const std::vector<Point3D> &points, const std::vector<Edge> &edges, const sf::Color &color, const std::vector<Wall> &walls)
         : points(points),
           edges(edges),
-          color(color) {
+          color(color),
+          walls(walls){
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Figure &f) {
@@ -38,6 +44,14 @@ public:
         os << "| Edges: ";
         for (auto [start, end]: f.edges) {
             os << "(" << start << "->" << end << ") ";
+        }
+        os << "| Walls: ";
+        for (auto const& wall: f.walls) {
+            os << "(";
+            for (int v: wall.vertexIdxs) {
+                os << v << ", ";
+            }
+            os << "\b\b) ";
         }
         return os;
     }

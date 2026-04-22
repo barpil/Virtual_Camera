@@ -3,6 +3,7 @@
 //
 
 #include "ObjectReader.h"
+#include "../graphics/elements/Figure.h"
 
 #include <algorithm>
 #include <format>
@@ -53,6 +54,7 @@ Figure ObjectReader::createFigureFromString(std::string figureString) {
     std::string colorStringPart;
     std::string pointsStringPart;
     std::string edgesStringPart;
+    std::optional<std::string> wallsStringPart;
 
     std::stringstream ss(figureString);
     if (figureString.contains('/')) {
@@ -76,6 +78,11 @@ Figure ObjectReader::createFigureFromString(std::string figureString) {
                 << "OR\n"
                 << "{0;1;0}  / (0;255;0) | {-1;-1;-1}, {1;-1;-1}, {1;1;-1}, {-1;1;-1} | {0;1}, {1;2}, {2;3}, {3;0}    ->  Green cube offset by {0;1;0}\n";
         exit(-1);
+    }
+    //Optional wall definitions
+    if (figureString.contains('|')) {
+        wallsStringPart.emplace();
+        std::getline(ss, *wallsStringPart, '|');
     }
 
     //OFFSET (if exists)
@@ -143,7 +150,42 @@ Figure ObjectReader::createFigureFromString(std::string figureString) {
         edges.push_back(e);
     }
 
-    return Figure(points, edges, color);
+    //WALLS (if declared)
+    std::vector<Wall> wallDefinitions;
+    if (wallsStringPart.has_value()) {
+        std::vector<std::string> wallStrings;
+        ss = std::stringstream(wallsStringPart.value());
+        std::string wallString;
+        while (std::getline(ss, wallString, ',')) {
+            wallStrings.push_back(wallString);
+        }
+
+        for (const std::string &ws: wallStrings) {
+            Wall w;
+            std::stringstream wsStream(ws);
+            std::string value;
+            while (std::getline(wsStream, value, ';')) {
+                try {
+                    w.vertexIdxs.push_back(std::stoi(value));
+                } catch (...) {
+                    std::cerr << "Non integer found in string : " << value << std::endl;
+                    exit(1);
+                }
+            }
+
+            if (w.vertexIdxs.size() < 3) {
+                std::cerr <<
+                        "Invalid wall sequence. Sequence should contain at least 3 Point3D indexes (First Point3D is '1') wall: "
+                        << ws << std::endl;
+                continue;
+            }
+
+
+            wallDefinitions.push_back(w);
+        }
+    }
+
+    return Figure(points, edges, color, wallDefinitions);
 }
 
 //wyciaga wektor obiektow Point3D ze stringa w formacie x1;y1;z1,x2;y2;z2 ...  (';' to przyklad pointsDelimiter, a ',' to coordinateDelimiter)
