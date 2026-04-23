@@ -11,6 +11,13 @@ struct Point3D {
     double z;
 };
 
+struct Point3DWithColor {
+    double x;
+    double y;
+    double z;
+    sf::Color color;
+};
+
 struct Point2D {
     double x;
     double y;

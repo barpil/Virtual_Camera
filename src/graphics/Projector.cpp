@@ -51,8 +51,7 @@ void Projector::drawFigure(const Figure &figure) {
 
 void Projector::drawFigureNet(const Figure &figure) {
     for (const auto &[start, end]: figure.edges) {
-        sf::VertexArray vertexes;
-        vertexes.setPrimitiveType(sf::PrimitiveType::TriangleFan);
+        std::vector<Point3DWithColor> projectedFigure;
         auto projectedLine = projectLine(figure.points[start], figure.points[end]);
         if (!projectedLine) continue;
 
@@ -60,29 +59,16 @@ void Projector::drawFigureNet(const Figure &figure) {
         const Line2DWithThickness lineWithThickness = utils::createLine2DWithThicknessFromLine(
             line, 1, 15, camera.getFocal());
 
-        const sf::Vector2f v1 = {
-            static_cast<float>(lineWithThickness.startL.x), static_cast<float>(lineWithThickness.startL.y)
-        };
-        const sf::Vector2f v2 = {
-            static_cast<float>(lineWithThickness.startR.x), static_cast<float>(lineWithThickness.startR.y)
-        };
-        const sf::Vector2f v3 = {
-            static_cast<float>(lineWithThickness.endR.x), static_cast<float>(lineWithThickness.endR.y)
-        };
-        const sf::Vector2f v4 = {
-            static_cast<float>(lineWithThickness.endL.x), static_cast<float>(lineWithThickness.endL.y)
-        };
-
         //uzaleznienie koloru od oddalenia punktu
         const sf::Color color1 = calculateDepthColor(figure.color, line.startZDepth, 0.3, 2);
         const sf::Color color2 = calculateDepthColor(figure.color, line.endZDepth, 0.3, 2);
 
-        vertexes.append(sf::Vertex{v1, color1});
-        vertexes.append(sf::Vertex{v2, color1});
-        vertexes.append(sf::Vertex{v3, color2});
-        vertexes.append(sf::Vertex{v4, color2});
+        projectedFigure.push_back({lineWithThickness.startL.x, lineWithThickness.startL.y, lineWithThickness.startZDepth, color1});
+        projectedFigure.push_back({lineWithThickness.startR.x, lineWithThickness.startR.y, lineWithThickness.startZDepth, color1});
+        projectedFigure.push_back({lineWithThickness.endR.x, lineWithThickness.endR.y, lineWithThickness.endZDepth, color2});
+        projectedFigure.push_back({lineWithThickness.endL.x, lineWithThickness.endL.y, lineWithThickness.endZDepth, color2});
 
-        vertexesVector.push_back(vertexes);
+        projectedFigures.push_back(projectedFigure);
     }
 }
 
@@ -92,8 +78,7 @@ void Projector::drawFigureWalls(const Figure &figure) {
         static_cast<uint8_t>(figure.color.b * 0.6)
     };
     for (const auto &[vertexIdxs]: figure.walls) {
-        sf::VertexArray vertexes;
-        vertexes.setPrimitiveType(sf::PrimitiveType::TriangleFan);
+        std::vector<Point3DWithColor> projectedFigure;
 
         std::vector<Point3D> wallPointsVector(vertexIdxs.size());
         std::ranges::transform(vertexIdxs, wallPointsVector.begin(), [&figure](int idx) {
@@ -107,18 +92,18 @@ void Projector::drawFigureWalls(const Figure &figure) {
         for (auto const& point : projectedWall) {
             const sf::Color color = calculateDepthColor(wallsColor, point.z, 0.3, 2);
             const sf::Vector2f v = {static_cast<float>(point.x), static_cast<float>(point.y)};
-            vertexes.append(sf::Vertex{v, color});
+            projectedFigure.push_back({point.x, point.y, point.z, color});
         }
 
-        vertexesVector.push_back(vertexes);
+        projectedFigures.push_back(projectedFigure);
     }
 }
 
 
 void Projector::refreshDisplay() {
     window.clear();
-    refreshOnScreenText();
     redrawFigures();
+    refreshOnScreenText();
     window.display();
 }
 
@@ -141,6 +126,7 @@ void Projector::refreshOnScreenText() {
 }
 
 void Projector::clearLineBuffer() {
+    projectedFigures.clear();
     vertexesVector.clear();
 }
 
@@ -149,6 +135,18 @@ void Projector::redrawFigures() {
     for (Figure const &figure: figures) {
         drawFigure(figure);
     }
+
+    utils::paintersSorting(projectedFigures);
+
+    for (auto const& figure: projectedFigures) {
+        sf::VertexArray vertexes;
+        vertexes.setPrimitiveType(sf::PrimitiveType::TriangleFan);
+        for (auto const& point: figure) {
+            vertexes.append(sf::Vertex{{static_cast<float>(point.x), static_cast<float>(point.y)}, point.color});
+        }
+        vertexesVector.push_back(vertexes);
+    }
+
     for (sf::VertexArray va: vertexesVector) {
         window.draw(va);
     }

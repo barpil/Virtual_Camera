@@ -224,4 +224,45 @@ namespace utils {
         factor = std::lerp(minFactor, maxFactor, factor);
         return factor;
     }
+
+
+
+
+    double getCentroidZDepth(const std::vector<Point3DWithColor> &pointVector) {
+        if (pointVector.empty()) return -1;
+
+
+        double sumZ = 0;
+        for (auto point: pointVector) {
+            sumZ+=point.z;
+        }
+        return sumZ/static_cast<int>(pointVector.size());
+    }
+
+    struct DepthInfo {
+        size_t index;
+        double zDepth;
+    };
+
+    void paintersSorting(std::vector<std::vector<Point3DWithColor>> &figureVector) {
+        if (figureVector.empty()) return;
+
+        std::vector<DepthInfo> depthTable;
+        depthTable.reserve(figureVector.size());
+        for (size_t i=0; i<figureVector.size(); i++) {
+            depthTable.push_back({i, getCentroidZDepth(figureVector[i])});
+        }
+
+        std::ranges::sort(depthTable, std::greater<double>{}, &DepthInfo::zDepth);
+
+        std::vector<std::vector<Point3DWithColor>> sortedFigures;
+        sortedFigures.reserve(figureVector.size());
+
+        for (const auto&[index, maxZ] : depthTable) {
+            sortedFigures.push_back(std::move(figureVector[index]));
+        }
+        figureVector = std::move(sortedFigures);
+    }
+
+
 }

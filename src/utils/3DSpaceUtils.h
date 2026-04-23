@@ -27,6 +27,8 @@ namespace utils {
     std::optional<std::vector<Point3D>> performPolygonZClipping(std::vector<Point3D> &points, const double zLimit);
     void transformPointToPointInCameraLocalAxes(Point3D &point, const Point3D &cameraPosition, const LocalAxes &cameraAxes);
     double calculateDepthFactor(double z, double minZ, double maxZ, double minFactor, double maxFactor, double factorExponent);
+    double getCentroidZDepth(const std::vector<Point3DWithColor> &pointVector);
+    void paintersSorting(std::vector<std::vector<Point3DWithColor>> &figureVector);
 }
 
 

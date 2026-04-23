@@ -14,13 +14,12 @@
 #include "elements/Figure.h"
 
 
-
-
 class Projector {
     int screenWidth;
     int screenHeight;
     sf::RenderWindow window;
     std::vector<sf::VertexArray> vertexesVector;
+    std::vector<std::vector<Point3DWithColor>> projectedFigures;
     sf::Text cameraPositionText;
     sf::Font font;
     Camera camera;
