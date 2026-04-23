@@ -91,7 +91,6 @@ void Projector::drawFigureWalls(const Figure &figure) {
 
         for (auto const& point : projectedWall) {
             const sf::Color color = calculateDepthColor(wallsColor, point.z, 0.3, 2);
-            const sf::Vector2f v = {static_cast<float>(point.x), static_cast<float>(point.y)};
             projectedFigure.push_back({point.x, point.y, point.z, color});
         }
 
