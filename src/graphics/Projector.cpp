@@ -15,6 +15,7 @@
 
 #include "../utils/3DSpaceUtils.h"
 #include "../utils/MySFMLUtils.h"
+#include "../utils/algorithms/HiddenSurfaceElimination.h"
 #include "binaries/RobotoMonoFont.h"
 #include "elements/Camera.h"
 
@@ -44,58 +45,65 @@ sf::Color calculateDepthColor(const sf::Color baseColor, const double z, double 
     };
 }
 
-void Projector::drawFigure(const Figure &figure) {
-    drawFigureNet(figure);
-    drawFigureWalls(figure);
-}
-
-void Projector::drawFigureNet(const Figure &figure) {
-    for (const auto &[start, end]: figure.edges) {
-        std::vector<Point3DWithColor> projectedFigure;
-        auto projectedLine = projectLine(figure.points[start], figure.points[end]);
-        if (!projectedLine) continue;
-
-        const Line2D line = projectedLine.value();
-        const Line2DWithThickness lineWithThickness = utils::createLine2DWithThicknessFromLine(
-            line, 1, 15, camera.getFocal());
-
-        //uzaleznienie koloru od oddalenia punktu
-        const sf::Color color1 = calculateDepthColor(figure.color, line.startZDepth, 0.3, 2);
-        const sf::Color color2 = calculateDepthColor(figure.color, line.endZDepth, 0.3, 2);
-
-        projectedFigure.push_back({lineWithThickness.startL.x, lineWithThickness.startL.y, lineWithThickness.startZDepth, color1});
-        projectedFigure.push_back({lineWithThickness.startR.x, lineWithThickness.startR.y, lineWithThickness.startZDepth, color1});
-        projectedFigure.push_back({lineWithThickness.endR.x, lineWithThickness.endR.y, lineWithThickness.endZDepth, color2});
-        projectedFigure.push_back({lineWithThickness.endL.x, lineWithThickness.endL.y, lineWithThickness.endZDepth, color2});
-
-        projectedFigures.push_back(projectedFigure);
+//Rysowanie elementu. Rozne w zaleznosci czy to wielokat czy linia
+void Projector::drawElement(const std::vector<Point3DWithColor> &elementPointsVector) {
+    if (elementPointsVector.size()>2) {
+        drawPolygon(elementPointsVector);
+    }else if (elementPointsVector.size()==2) {
+        drawLine(elementPointsVector);
     }
 }
 
-void Projector::drawFigureWalls(const Figure &figure) {
+
+void Projector::drawLine(const std::vector<Point3DWithColor> &elementPointsVector) {
+
+    std::vector<Point3DWithColor> projectedElement;
+    sf::Color color = elementPointsVector[0].color;
+    auto projectedLine = projectLine({elementPointsVector[0].x, elementPointsVector[0].y, elementPointsVector[0].z},
+                                                    {elementPointsVector[1].x, elementPointsVector[1].y, elementPointsVector[1].z});
+    if (!projectedLine) return;
+
+    const Line2D line = projectedLine.value();
+    const Line2DWithThickness lineWithThickness = utils::createLine2DWithThicknessFromLine(
+        line, 1, 15, camera.getFocal());
+
+    //uzaleznienie koloru od oddalenia punktu
+    const sf::Color color1 = calculateDepthColor(color, line.startZDepth, 0.3, 2);
+    const sf::Color color2 = calculateDepthColor(color, line.endZDepth, 0.3, 2);
+
+    projectedElement.push_back({lineWithThickness.startL.x, lineWithThickness.startL.y, lineWithThickness.startZDepth, color1});
+    projectedElement.push_back({lineWithThickness.startR.x, lineWithThickness.startR.y, lineWithThickness.startZDepth, color1});
+    projectedElement.push_back({lineWithThickness.endR.x, lineWithThickness.endR.y, lineWithThickness.endZDepth, color2});
+    projectedElement.push_back({lineWithThickness.endL.x, lineWithThickness.endL.y, lineWithThickness.endZDepth, color2});
+
+    projectedFigures.push_back(projectedElement);
+}
+
+
+void Projector::drawPolygon(const std::vector<Point3DWithColor> &elementPointsVector) {
+    sf::Color color = elementPointsVector[0].color;
     sf::Color wallsColor = {
-        static_cast<uint8_t>(figure.color.r * 0.6), static_cast<uint8_t>(figure.color.g * 0.6),
-        static_cast<uint8_t>(figure.color.b * 0.6)
+        static_cast<uint8_t>(color.r * 0.6), static_cast<uint8_t>(color.g * 0.6),
+        static_cast<uint8_t>(color.b * 0.6)
     };
-    for (const auto &[vertexIdxs]: figure.walls) {
-        std::vector<Point3DWithColor> projectedFigure;
+    std::vector<Point3DWithColor> projectedElement;
 
-        std::vector<Point3D> wallPointsVector(vertexIdxs.size());
-        std::ranges::transform(vertexIdxs, wallPointsVector.begin(), [&figure](int idx) {
-            return figure.points[idx];
-        });
-        auto projectedWallOpt = projectWall(wallPointsVector);
-        if (!projectedWallOpt) continue;
-
-        auto const& projectedWall = projectedWallOpt.value();
-
-        for (auto const& point : projectedWall) {
-            const sf::Color color = calculateDepthColor(wallsColor, point.z, 0.3, 2);
-            projectedFigure.push_back({point.x, point.y, point.z, color});
-        }
-
-        projectedFigures.push_back(projectedFigure);
+    std::vector<Point3D> polygonPointsVector;
+    polygonPointsVector.reserve(elementPointsVector.size());
+    for (const auto& p : elementPointsVector) {
+        polygonPointsVector.emplace_back(p.x, p.y, p.z);
     }
+    auto projectedWallOpt = projectWall(polygonPointsVector);
+    if (!projectedWallOpt) return;
+
+    auto const& projectedPolygon = projectedWallOpt.value();
+
+    for (auto const& point : projectedPolygon) {
+        const sf::Color c = calculateDepthColor(wallsColor, point.z, 0.3, 2);
+        projectedElement.push_back({point.x, point.y, point.z, c});
+    }
+
+    projectedFigures.push_back(projectedElement);
 }
 
 
@@ -131,11 +139,13 @@ void Projector::clearLineBuffer() {
 
 void Projector::redrawFigures() {
     clearLineBuffer();
-    for (Figure const &figure: figures) {
-        drawFigure(figure);
+    std::vector<const std::vector<Point3DWithColor>*> polygons = getPolygonsInBackToFrontOrder(camera.getCameraPosition());
+
+
+    for (const std::vector<Point3DWithColor>* polygon: polygons) {
+        drawElement(*polygon);
     }
 
-    utils::paintersSorting(projectedFigures);
 
     for (auto const& figure: projectedFigures) {
         sf::VertexArray vertexes;
@@ -151,8 +161,41 @@ void Projector::redrawFigures() {
     }
 }
 
+
+
+void Projector::preparePolygonsInGeneralSpace(const std::vector<Figure> &figureList) {
+    std::vector<std::vector<Point3DWithColor>> polygonsInGeneralSpace;
+    for (auto const& figure: figureList) {
+        //Prepare walls
+        for (const auto &[vertexIdxs]: figure.walls) {
+            std::vector<Point3DWithColor> polygon;
+
+            std::vector<Point3D> wallPointsVector(vertexIdxs.size());
+            std::ranges::transform(vertexIdxs, wallPointsVector.begin(), [&figure](int idx) {
+                return figure.points[idx];
+            });
+
+            for (auto const& point : wallPointsVector) {
+                polygon.push_back({point.x, point.y, point.z, {figure.color.r, figure.color.g, figure.color.b}});
+            }
+
+            polygonsInGeneralSpace.push_back(polygon);
+
+        }
+
+        //Prepare net lines
+        for (const auto &[start, end]: figure.edges) {
+            std::vector<Point3DWithColor> edge = {{figure.points[start].x, figure.points[start].y, figure.points[start].z, figure.color},
+                {figure.points[end].x, figure.points[end].y, figure.points[end].z, figure.color}};
+            polygonsInGeneralSpace.push_back(edge);
+        }
+    }
+    initializeBSPTree(polygonsInGeneralSpace);
+}
+
+
 void Projector::render(const std::vector<Figure> &figureList) {
-    this->figures = figureList;
+    preparePolygonsInGeneralSpace(figureList);
     refreshDisplay();
     std::optional<sf::Vector2i> dragStart;
     bool isDragging = false;
@@ -165,7 +208,7 @@ void Projector::render(const std::vector<Figure> &figureList) {
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) window.close();
             else if (event->is<sf::Event::KeyPressed>()) {
-                keysPressedCount++; //ale to sprawdzanie czy jest wcisniety trzeba na koniec dac
+                keysPressedCount++;
                 if (canTakePhoto && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::P)) {
                     takePhoto();
                     canTakePhoto = false;

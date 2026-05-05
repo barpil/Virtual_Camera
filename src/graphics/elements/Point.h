@@ -4,6 +4,7 @@
 
 #ifndef WIRTUALNA_KAMERA_POINT_H
 #define WIRTUALNA_KAMERA_POINT_H
+#include <SFML/Graphics/Color.hpp>
 
 struct Point3D {
     double x;
@@ -11,10 +12,7 @@ struct Point3D {
     double z;
 };
 
-struct Point3DWithColor {
-    double x;
-    double y;
-    double z;
+struct Point3DWithColor : Point3D  {
     sf::Color color;
 };
 

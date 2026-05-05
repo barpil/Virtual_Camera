@@ -20,6 +20,10 @@ add_executable(Wirtualna_kamera src/main.cpp
         src/graphics/binaries/RobotoMonoFont.h
         src/utils/MySFMLUtils.cpp
         src/utils/MySFMLUtils.h
+        src/utils/GeneralUtils.cpp
+        src/utils/algorithms/HiddenSurfaceElimination.cpp
+        src/utils/algorithms/BSPTree/BSPTree.cpp
+
 )
 
 target_link_libraries(Wirtualna_kamera PRIVATE SFML::Graphics SFML::Window SFML::System)

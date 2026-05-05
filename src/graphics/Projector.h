@@ -28,7 +28,7 @@ class Projector {
 public:
     Projector(int screenWidth, int screenHeight, const Camera &camera);
 
-    void drawFigure(const Figure &figure);
+
     void render(const std::vector<Figure> &figureList);
     void refreshDisplay();
     void clearLineBuffer();
@@ -38,8 +38,16 @@ public:
     }
 
 private:
+    void preparePolygonsInGeneralSpace(const std::vector<Figure> &figureList);
     std::optional<Line2D> projectLine(const Point3D &point1, const Point3D &point2) const;
     std::optional<std::vector<Point3D>> projectWall(const std::vector<Point3D> &points) const;
+
+    void drawElement(const std::vector<Point3DWithColor> &elementPointsVector);
+    void drawLine(const std::vector<Point3DWithColor> &elementPointsVector);
+    void drawPolygon(const std::vector<Point3DWithColor> &elementPointsVector);
+
+
+
     void redrawFigures();
     void drawFigureNet(const Figure &figure);
     void drawFigureWalls(const Figure &figure);

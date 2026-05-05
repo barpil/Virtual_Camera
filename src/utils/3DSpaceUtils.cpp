@@ -227,7 +227,6 @@ namespace utils {
 
 
 
-
     double getCentroidZDepth(const std::vector<Point3DWithColor> &pointVector) {
         if (pointVector.empty()) return -1;
 
